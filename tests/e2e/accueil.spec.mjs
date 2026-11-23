@@ -16,6 +16,8 @@ test("phrase d'accueil et cartes en cours", async () => {
   assert.ok(await iptv.getByText("IM", { exact: true }).isVisible());
   assert.ok(await iptv.getByText("en travail").isVisible());
   assert.ok(await cartes.filter({ hasText: "Appli sportive" }).getByText("—", { exact: true }).isVisible());
+  assert.ok(await cartes.filter({ hasText: "Appli sportive" }).getByText("estimé par l'IA").isVisible());
+  assert.equal(await cartes.filter({ hasText: "Pistes" }).getByText("estimé par l'IA").count(), 0);
   await fermer();
 });
 

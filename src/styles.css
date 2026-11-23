@@ -100,3 +100,4 @@ select, input, textarea { min-height: 40px; border-radius: 12px; border: 1px sol
 .quota-nom { color: var(--encre) !important; font-size: 18px !important; }
 .quota-ligne { display: flex; flex-direction: column; gap: 6px; }
 .quota-texte { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; flex-wrap: wrap; }
+.mini-note { font-size: 12px; margin-top: -10px; }

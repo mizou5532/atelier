@@ -1,7 +1,8 @@
 import type { DepotBrut, Env } from "./bd";
 import { lireFiche } from "../shared/fiche";
 import type { Fiche } from "../shared/types";
-import { derniersCommits, ErreurGithub, lireEtatMd, listerDepots, type DepotGithub } from "./github";
+import { derniersCommits, ErreurGithub, lireEtatMd, lireFichier, listerDepots, type DepotGithub } from "./github";
+import { resumerDepot } from "./agent";
 
 export async function synchroniser(env: Env, maintenant: Date, f: typeof fetch = fetch): Promise<{ nouveaux: number; erreur?: "injoignable" | "cle_refusee" | "interne" }> {
   const db = env.DB;
@@ -16,7 +17,9 @@ export async function synchroniser(env: Env, maintenant: Date, f: typeof fetch =
   }
 
   try {
-    return await appliquer(db, env.GITHUB_CLE, liste, quand, f);
+    const r = await appliquer(db, env.GITHUB_CLE, liste, quand, f);
+    if (!r.erreur && env.GEMINI_CLE) await resumerSansFiche(db, env, f);
+    return r;
   } catch (e) {
     console.error("Synchronisation : erreur interne", e);
     await noterErreur(db, "interne", quand);
@@ -109,4 +112,27 @@ export async function completerLiens(db: D1Database): Promise<void> {
 async function noterErreur(db: D1Database, type: "injoignable" | "cle_refusee" | "interne", quand: string): Promise<void> {
   await db.prepare("UPDATE etat_synchro SET erreur = ?, erreur_depuis = COALESCE(CASE WHEN erreur = ? THEN erreur_depuis END, ?) WHERE id = 1")
     .bind(type, type, quand).run();
+}
+
+const RESUMES_PAR_PASSAGE = 3;
+
+/** L'agent résume les dépôts sans fiche qui ont changé depuis leur dernier résumé (au plus 3 par passage). */
+async function resumerSansFiche(db: D1Database, env: Env, f: typeof fetch): Promise<void> {
+  const aFaire = (await db.prepare(
+    `SELECT * FROM depots WHERE fiche_etat = 'absente' AND disparu = 0 AND masque = 0
+     AND (resume_ia_pour IS NULL OR resume_ia_pour != pousse_le) ORDER BY pousse_le DESC LIMIT ?`,
+  ).bind(RESUMES_PAR_PASSAGE).all<DepotBrut>()).results;
+  for (const d of aFaire) {
+    try {
+      const passation = await lireFichier(env.GITHUB_CLE, d.nom_complet, d.branche, "PASSATION.md", f);
+      const readme = passation ? null : await lireFichier(env.GITHUB_CLE, d.nom_complet, d.branche, "README.md", f);
+      const resume = await resumerDepot(env.GEMINI_CLE!, env.GEMINI_MODELE || "gemini-3.5-flash-lite", {
+        nom: d.nom_complet.split("/")[1], passation, readme, commits: JSON.parse(d.commits_json),
+      }, f);
+      await db.prepare("UPDATE depots SET resume_ia_json = COALESCE(?, resume_ia_json), resume_ia_pour = ? WHERE github_id = ?")
+        .bind(resume ? JSON.stringify(resume) : null, d.pousse_le, d.github_id).run();
+    } catch (e) {
+      console.error("Agent : résumé impossible pour", d.nom_complet, e);
+    }
+  }
 }

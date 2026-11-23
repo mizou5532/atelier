@@ -34,6 +34,7 @@ export function CarteProjet({ carte }: { carte: CarteVue }) {
       </div>
       <Barre valeur={carte.avancement} nom={carte.couleur} />
       {etape && <p className="carte-etape">{etape}</p>}
+      {carte.estimeParIA && <p className="discret mini-note">estimé par l'IA</p>}
       {(carte.ficheAVerifier || carte.proposition.avancement !== undefined || carte.proposition.statut) && (
         <p className="carte-note">
           {carte.ficheAVerifier ? "Fiche à vérifier" : "Ton IA propose une mise à jour"}

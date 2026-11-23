@@ -18,7 +18,8 @@
     "ACCES_EQUIPE": "https://wild-shape-0c7f.cloudflareaccess.com",
     "ACCES_AUD": "7a555d10838123765f51150a4cc1cb2fc72cfbfeb0f370945e6b19153d770775",
     "ACCES_COURRIEL": "hamzahlal86@gmail.com",
-    "ACCES_SERVICE_ID": ""
+    "ACCES_SERVICE_ID": "",
+    "GEMINI_MODELE": "gemini-3.5-flash-lite"
   },
   "observability": { "enabled": true },
   "triggers": { "crons": ["*/15 * * * *"] }

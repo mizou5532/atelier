@@ -158,3 +158,15 @@ describe("liens ajoutés automatiquement", () => {
     expect(apres.map((l: any) => l.url)).not.toContain("https://vieux-site.exemple/");
   });
 });
+
+describe("résumé de l'agent sur la carte", () => {
+  it("remplit les étapes et l'avancement quand il n'y a pas de fiche, avec la mention IA", async () => {
+    await db.prepare("UPDATE depots SET resume_ia_json = ? WHERE github_id = 1").bind(JSON.stringify({ derniereEtape: "Ordi en ligne", prochaineEtape: "Tester Sport", avancement: 65 })).run();
+    const iptv = (await accueil()).enCours.find((p: any) => p.nom === "IPTV maison");
+    expect(iptv.prochaineEtape).toBe("Tester Sport");
+    expect(iptv.avancement).toBe(65);
+    expect(iptv.estimeParIA).toBe(true);
+    const pistes = (await accueil()).enCours.find((p: any) => p.nom === "Pistes");
+    expect(pistes.estimeParIA).toBe(false);
+  });
+});

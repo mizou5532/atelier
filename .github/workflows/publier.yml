@@ -46,3 +46,12 @@ jobs:
           else
             echo "Secret ATELIER_GITHUB_CLE absent : étape sautée"
           fi
+      - name: Transmettre la clé Gemini (agent) au Worker
+        env:
+          ATELIER_GEMINI_CLE: ${{ secrets.ATELIER_GEMINI_CLE }}
+        run: |
+          if [ -n "$ATELIER_GEMINI_CLE" ]; then
+            printf '%s' "$ATELIER_GEMINI_CLE" | npx wrangler secret put GEMINI_CLE
+          else
+            echo "Secret ATELIER_GEMINI_CLE absent : étape sautée"
+          fi

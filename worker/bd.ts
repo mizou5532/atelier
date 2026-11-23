@@ -6,6 +6,8 @@ export type Env = {
   ACCES_AUD: string;
   ACCES_COURRIEL: string;
   ACCES_SERVICE_ID: string;
+  GEMINI_CLE?: string;
+  GEMINI_MODELE?: string;
 };
 
 export type ProjetBrut = {
@@ -18,6 +20,7 @@ export type DepotBrut = {
   github_id: number; nom_complet: string; url: string; site: string | null; prive: number; archive: number;
   branche: string; pousse_le: string; projet_id: number | null; masque: number; disparu: number;
   fiche_json: string | null; fiche_etat: "absente" | "ok" | "a_verifier"; fiche_lue_pour: string | null; commits_json: string;
+  resume_ia_json?: string | null; resume_ia_pour?: string | null;
 };
 
 export async function lireProjets(db: D1Database): Promise<ProjetBrut[]> {

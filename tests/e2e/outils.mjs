@@ -34,7 +34,7 @@ export function accueilExemple() {
     enCours: [
       carte({ id: 1, nom: "IPTV maison", couleur: "violet", initiales: "IM", derniere: { quand: "2026-11-22T23:49:16Z", relatif: "hier", aLaMain: false }, avancement: 70, prochaineEtape: "Tester le filtre Sport sur la télé", enTravail: true, liensRapides: [{ nom: "Site", url: "https://exemple.dev" }, { nom: "GitHub", url: "https://github.com/mizou5532/iptv-home" }] }),
       carte({ id: 3, nom: "Pistes", couleur: "vert", initiales: "PI", derniere: { quand: "2026-11-21T22:51:33Z", relatif: "il y a 2 jours", aLaMain: false }, avancement: 98, prochaineEtape: "Essais en ligne" }),
-      carte({ id: 4, nom: "Appli sportive", couleur: "bleu", initiales: "AS", derniere: { quand: "2026-11-21T05:01:02Z", relatif: "il y a 2 jours", aLaMain: false }, derniereEtape: "Termes sportifs du Québec" }),
+      carte({ id: 4, nom: "Appli sportive", couleur: "bleu", initiales: "AS", estimeParIA: true, derniere: { quand: "2026-11-21T05:01:02Z", relatif: "il y a 2 jours", aLaMain: false }, derniereEtape: "Termes sportifs du Québec" }),
     ],
     endormis: [
       carte({ id: 5, nom: "MonDroit.ca", couleur: "rose", initiales: "MO", derniere: { quand: "2026-03-18T07:30:25Z", relatif: "il y a 8 mois", aLaMain: false }, nbDepots: 2 }),

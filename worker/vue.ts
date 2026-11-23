@@ -20,7 +20,9 @@ function depotPrincipal(p: ProjetBrut, depots: DepotBrut[]): DepotBrut | undefin
 
 export function construireCarte(p: ProjetBrut, depots: DepotBrut[], liens: { nom: string; url: string }[], maintenant: Date): CarteVue & { _fiche?: Fiche; _principal?: DepotBrut } {
   const principal = depotPrincipal(p, depots);
-  const fiche: Fiche | undefined = principal?.fiche_json ? JSON.parse(principal.fiche_json) : undefined;
+  const ficheReelle: Fiche | undefined = principal?.fiche_json ? JSON.parse(principal.fiche_json) : undefined;
+  const resume = !ficheReelle && principal?.resume_ia_json ? JSON.parse(principal.resume_ia_json) as { derniereEtape: string; prochaineEtape: string; avancement: number | null } : undefined;
+  const fiche: Fiche | undefined = ficheReelle ?? (resume ? { derniereEtape: resume.derniereEtape, prochaineEtape: resume.prochaineEtape, avancement: resume.avancement ?? undefined, liens: [], enCours: "" } : undefined);
   const choix = p.statut as Statut | null;
   const statut = statutEffectif(choix, fiche?.statut);
   const propStatut = proposition<Statut>(choix, fiche?.statut, p.statut_ignore as Statut | null);
@@ -34,7 +36,7 @@ export function construireCarte(p: ProjetBrut, depots: DepotBrut[], liens: { nom
     avancement: p.avancement ?? fiche?.avancement ?? null,
     proposition: { ...(propStatut ? { statut: propStatut } : {}), ...(propAvancement !== null ? { avancement: propAvancement } : {}) },
     derniereEtape: fiche?.derniereEtape, prochaineEtape: fiche?.prochaineEtape,
-    enTravail: Boolean(fiche?.enCours), ficheAVerifier: principal?.fiche_etat === "a_verifier",
+    enTravail: Boolean(fiche?.enCours), ficheAVerifier: principal?.fiche_etat === "a_verifier", estimeParIA: Boolean(resume),
     liensRapides: rapides.slice(0, 2), nbDepots: depots.length,
     _fiche: fiche, _principal: principal,
   };

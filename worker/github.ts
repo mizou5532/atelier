@@ -36,6 +36,14 @@ export async function listerDepots(cle: string, f: typeof fetch = fetch): Promis
   return tous;
 }
 
+/** Contenu d'un fichier à la racine du dépôt, ou null s'il est absent. */
+export async function lireFichier(cle: string, nomComplet: string, branche: string, chemin: string, f: typeof fetch = fetch): Promise<string | null> {
+  const r = await appeler(cle, `/repos/${nomComplet}/contents/${chemin}?ref=${encodeURIComponent(branche)}`, f, "application/vnd.github.raw+json");
+  if (r.status === 404) return null;
+  if (!r.ok) throw new ErreurGithub("injoignable", `GitHub ${r.status}`);
+  return r.text();
+}
+
 /** Contenu d'ETAT.md sur la branche donnée, ou null si absent. Lève une erreur si GitHub ne répond pas. */
 export async function lireEtatMd(cle: string, nomComplet: string, branche: string, f: typeof fetch = fetch): Promise<string | null> {
   const r = await appeler(cle, `/repos/${nomComplet}/contents/ETAT.md?ref=${encodeURIComponent(branche)}`, f, "application/vnd.github.raw+json");

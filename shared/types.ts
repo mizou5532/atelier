@@ -30,6 +30,7 @@ export type CarteVue = {
   prochaineEtape?: string;
   enTravail: boolean;
   ficheAVerifier: boolean;
+  estimeParIA: boolean;
   liensRapides: Lien[];
   nbDepots: number;
 };
