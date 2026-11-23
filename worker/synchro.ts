@@ -1,8 +1,10 @@
 import type { DepotBrut, Env } from "./bd";
 import { lireFiche } from "../shared/fiche";
 import type { Fiche } from "../shared/types";
-import { derniereExecution, derniersCommits, ErreurGithub, lireEtatMd, lireFichier, listerDepots, type DepotGithub } from "./github";
+import { activiteAnnuelle, commitsDepuis, derniereExecution, derniersCommits, ErreurGithub, lireEtatMd, lireFichier, listerDepots, type DepotGithub } from "./github";
 import { cocherJalons, proposerJalons, resumerDepot } from "./agent";
+import { joursDepuisStats } from "../shared/activite";
+import { construireAccueil } from "./vue";
 
 export async function synchroniser(env: Env, maintenant: Date, f: typeof fetch = fetch): Promise<{ nouveaux: number; erreur?: "injoignable" | "cle_refusee" | "interne" }> {
   const db = env.DB;
@@ -19,10 +21,12 @@ export async function synchroniser(env: Env, maintenant: Date, f: typeof fetch =
   try {
     const r = await appliquer(db, env.GITHUB_CLE, liste, quand, f);
     if (!r.erreur) await lireVoyants(db, env.GITHUB_CLE, f);
+    if (!r.erreur) await lireActivite(db, env.GITHUB_CLE, maintenant, f);
     if (!r.erreur && env.GEMINI_CLE) {
       await resumerSansFiche(db, env, f);
       await suivreJalons(db, env, f);
     }
+    if (!r.erreur) await noterHistorique(db, maintenant);
     return r;
   } catch (e) {
     console.error("Synchronisation : erreur interne", e);
@@ -197,4 +201,27 @@ async function lireVoyants(db: D1Database, cle: string, f: typeof fetch): Promis
       .bind(x?.etat ?? null, x?.nom ?? null, x?.quand ?? null, x?.url ?? null, d.github_id);
   });
   if (ecritures.length) await db.batch(ecritures);
+}
+
+/** Activité annuelle et heures des commits récents, pour les dépôts qui ont changé (au plus 10 par passage). */
+async function lireActivite(db: D1Database, cle: string, maintenant: Date, f: typeof fetch): Promise<void> {
+  const depots = (await db.prepare(
+    `SELECT github_id, nom_complet, branche, pousse_le FROM depots WHERE projet_id IS NOT NULL AND masque = 0 AND disparu = 0
+     AND (activite_pour IS NULL OR activite_pour != pousse_le) ORDER BY pousse_le DESC LIMIT 10`,
+  ).all<{ github_id: number; nom_complet: string; branche: string; pousse_le: string }>()).results;
+  const depuis = new Date(maintenant.getTime() - 30 * 86_400_000).toISOString();
+  for (const d of depots) {
+    const [stats, recents] = await Promise.all([activiteAnnuelle(cle, d.nom_complet, f), commitsDepuis(cle, d.nom_complet, d.branche, depuis, f)]);
+    if (stats === "calcul") continue; // GitHub prépare encore : prochain passage
+    await db.prepare("UPDATE depots SET activite_json = ?, commits_recents_json = ?, activite_pour = ? WHERE github_id = ?")
+      .bind(stats ? JSON.stringify(joursDepuisStats(stats)) : null, JSON.stringify(recents), d.pousse_le, d.github_id).run();
+  }
+}
+
+/** Avancement du jour (heure de Montréal) de chaque projet, pour la courbe. */
+async function noterHistorique(db: D1Database, maintenant: Date): Promise<void> {
+  const jour = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Montreal", year: "numeric", month: "2-digit", day: "2-digit" }).format(maintenant);
+  const vue = await construireAccueil(db, maintenant);
+  const cartes = [...vue.enCours, ...vue.endormis, ...vue.archives].filter((c) => c.avancement !== null);
+  if (cartes.length) await db.batch(cartes.map((c) => db.prepare("INSERT OR REPLACE INTO historique (projet_id, jour, avancement) VALUES (?, ?, ?)").bind(c.id, jour, c.avancement)));
 }

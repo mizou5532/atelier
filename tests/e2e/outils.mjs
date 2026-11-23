@@ -25,19 +25,19 @@ export async function servir() {
   return { url: `http://127.0.0.1:${serveur.address().port}`, fermer: () => serveur.close() };
 }
 
-const carte = (o) => ({ derniereEtape: undefined, prochaineEtape: undefined, enTravail: false, ficheAVerifier: false, liensRapides: [], nbDepots: 1, proposition: {}, avancement: null, statut: "en_cours", ...o });
+const carte = (o) => ({ icone: null, historique: [], deltaSemaine: null, heuresSemaine: 0, voyant: null, jalonsResume: null, jalonsAValider: false, estimeParIA: false, derniereEtape: undefined, prochaineEtape: undefined, enTravail: false, ficheAVerifier: false, liensRapides: [], nbDepots: 1, proposition: {}, avancement: null, statut: "en_cours", ...o });
 
 export function accueilExemple() {
   return {
     maj: { derniereReussite: new Date(Date.now() - 3 * 60_000).toISOString(), erreur: null, erreurDepuis: null },
     aClasser: [{ githubId: 99, nom: "test", url: "https://github.com/mizou5532/test", relatif: "il y a 3 ans" }],
     enCours: [
-      carte({ id: 1, nom: "IPTV maison", couleur: "violet", initiales: "IM", derniere: { quand: "2026-11-22T23:49:16Z", relatif: "hier", aLaMain: false }, avancement: 70, prochaineEtape: "Tester le filtre Sport sur la télé", enTravail: true, liensRapides: [{ nom: "Site", url: "https://exemple.dev" }, { nom: "GitHub", url: "https://github.com/mizou5532/iptv-home" }] }),
+      carte({ id: 1, nom: "IPTV maison", couleur: "violet", initiales: "IM", icone: "📺", historique: [{ jour: "2026-11-16", avancement: 58 }, { jour: "2026-11-20", avancement: 64 }, { jour: "2026-11-23", avancement: 70 }], deltaSemaine: 12, heuresSemaine: 6.2, derniere: { quand: "2026-11-22T23:49:16Z", relatif: "hier", aLaMain: false }, avancement: 70, prochaineEtape: "Tester le filtre Sport sur la télé", enTravail: true, liensRapides: [{ nom: "Site", url: "https://exemple.dev" }, { nom: "GitHub", url: "https://github.com/mizou5532/iptv-home" }] }),
       carte({ id: 3, nom: "Pistes", couleur: "vert", initiales: "PI", derniere: { quand: "2026-11-21T22:51:33Z", relatif: "il y a 2 jours", aLaMain: false }, avancement: 98, prochaineEtape: "Essais en ligne" }),
       carte({ id: 4, nom: "Appli sportive", couleur: "bleu", initiales: "AS", estimeParIA: true, derniere: { quand: "2026-11-21T05:01:02Z", relatif: "il y a 2 jours", aLaMain: false }, derniereEtape: "Termes sportifs du Québec" }),
     ],
     endormis: [
-      carte({ id: 5, nom: "MonDroit.ca", couleur: "rose", initiales: "MO", derniere: { quand: "2026-03-18T07:30:25Z", relatif: "il y a 8 mois", aLaMain: false }, nbDepots: 2 }),
+      carte({ id: 5, nom: "MonDroit.ca", couleur: "rose", initiales: "MO", derniereEtape: "Page d'accueil faite", prochaineEtape: "Formulaire de demande", derniere: { quand: "2026-03-18T07:30:25Z", relatif: "il y a 8 mois", aLaMain: false }, nbDepots: 2 }),
       carte({ id: 6, nom: "NBA", couleur: "ambre", initiales: "NB", derniere: { quand: "2026-02-24T00:00:00Z", relatif: "il y a 9 mois", aLaMain: false }, nbDepots: 4 }),
     ],
     idees: [carte({ id: 8, nom: "Dépôt entre mes appareils", couleur: "orange", initiales: "DÉ", statut: "idee", derniere: { quand: "2026-11-23T00:00:00Z", relatif: "hier", aLaMain: true }, nbDepots: 0 })],
@@ -57,6 +57,7 @@ export async function ouvrir(navigateur, url, { largeur = 1440, hauteur = 900, a
     envois.push({ methode: req.method(), chemin, corps: req.postData() ? JSON.parse(req.postData()) : undefined });
     const cle = `${req.method()} ${chemin}`;
     if (cle in reponses) return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(typeof reponses[cle] === "function" ? reponses[cle]() : reponses[cle]) });
+    if (cle === "GET /api/activite") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ depuis: "2026-05-25", jours: [{ jour: "2026-11-21", total: 3, projets: [{ id: 3, nom: "Pistes", couleur: "vert", n: 3 }] }] }) });
     if (cle === "GET /api/accueil") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(accueil) });
     return route.fulfill({ status: req.method() === "POST" && chemin === "/api/projets" ? 201 : 204, contentType: "application/json", body: req.method() === "POST" && chemin === "/api/projets" ? '{"id":42}' : "" });
   });

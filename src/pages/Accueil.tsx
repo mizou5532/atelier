@@ -5,6 +5,9 @@ import { CarteProjet } from "../composants/CarteProjet";
 import { BulleQuota } from "../composants/BulleQuota";
 import { LienInterne } from "../composants/Lien";
 import { heureMontreal, relatif } from "../../shared/temps";
+import { filtrerProjets, salutation } from "../../shared/activite";
+import { naviguer } from "../App";
+import { Calendrier } from "../composants/Calendrier";
 
 const dateDuJour = () => {
   const t = new Intl.DateTimeFormat("fr-CA", { timeZone: "America/Montreal", weekday: "long", day: "numeric", month: "long" }).format(new Date());
@@ -12,8 +15,9 @@ const dateDuJour = () => {
 };
 
 function phrase(n: number): string {
-  if (n === 0) return "Bon retour. Rien n'avance pour l'instant.";
-  return `Bon retour. ${n} projet${n > 1 ? "s avancent" : " avance"}.`;
+  const bonjour = salutation(new Date());
+  if (n === 0) return `${bonjour}. Rien n'avance pour l'instant.`;
+  return `${bonjour}. ${n} projet${n > 1 ? "s avancent" : " avance"}.`;
 }
 
 export function Accueil() {
@@ -26,6 +30,15 @@ export function Accueil() {
     try { setVue(await api.accueil()); setErreur(null); } catch { setErreur("Impossible de charger Atelier. Réessaie dans un instant."); }
   }, []);
   useEffect(() => { charger(); }, [charger]);
+  const [recherche, setRecherche] = useState<string | null>(null);
+  useEffect(() => {
+    const touche = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); setRecherche(""); }
+      if (e.key === "Escape") setRecherche(null);
+    };
+    addEventListener("keydown", touche);
+    return () => removeEventListener("keydown", touche);
+  }, []);
 
   const [echec, setEchec] = useState<string | null>(null);
   const agir = async (action: () => Promise<unknown>, message = "Ça n'a pas marché. Réessaie dans un instant.") => {
@@ -45,6 +58,8 @@ export function Accueil() {
           <h1>{phrase(vue.enCours.length)}</h1>
         </div>
         <nav className="entete-actions" aria-label="Actions">
+          <button className="bouton-doux" onClick={() => setRecherche("")} aria-label="Chercher (Ctrl+K)">Chercher <kbd>Ctrl K</kbd></button>
+          <LienInterne vers="/semaine" className="bouton-doux">Ma semaine</LienInterne>
           <LienInterne vers="/quotas" className="bouton-doux">Quotas</LienInterne>
           <LienInterne vers="/reglages" className="bouton-doux">Réglages</LienInterne>
           <button className="bouton-doux" onClick={() => agir(api.rafraichir, "La mise à jour n'a pas marché. Les dernières données connues restent affichées.")}>Rafraîchir</button>
@@ -63,6 +78,8 @@ export function Accueil() {
 
       {echec && <p className="bandeau" role="alert">{echec}</p>}
 
+      {recherche !== null && <Recherche projets={tous} valeur={recherche} changer={setRecherche} />}
+
       {nouvelleIdee && <FormIdee fermer={() => setNouvelleIdee(false)} garder={(nom, notes) => agir(async () => { await api.creerProjet({ nom, statut: "idee", notes }); setNouvelleIdee(false); })} />}
 
       {vue.quotas.length > 0 && <section className="bulles" aria-label="Quotas IA">{vue.quotas.map((q) => <BulleQuota key={q.compteId} quota={q} />)}</section>}
@@ -71,6 +88,8 @@ export function Accueil() {
         {vue.enCours.map((c) => <CarteProjet key={c.id} carte={c} />)}
         {vue.enCours.length === 0 && <p className="discret">Aucun projet en cours.</p>}
       </section>
+
+      <Calendrier />
 
       <div className="bas">
         <section>
@@ -119,6 +138,12 @@ function Decision({ carte, autres, agir }: { carte: CarteVue; autres: CarteVue[]
   const statut = (s: string, extra: object = {}) => () => agir(() => api.modifierProjet(carte.id, { statut: s, ...extra }));
   return (
     <div className="choix">
+      {(carte.derniereEtape || carte.prochaineEtape) && (
+        <div className="explication">
+          {carte.derniereEtape && <p>Arrêté à : {carte.derniereEtape}</p>}
+          {carte.prochaineEtape && <p>Il restait : {carte.prochaineEtape}</p>}
+        </div>
+      )}
       <button onClick={statut("en_pause")}>En pause</button>
       <button onClick={statut("abandonne")}>Abandonné</button>
       <button onClick={statut("termine")}>Terminé</button>
@@ -169,5 +194,23 @@ function FormIdee({ fermer, garder }: { fermer: () => void; garder: (nom: string
         <button type="button" onClick={fermer}>Annuler</button>
       </div>
     </form>
+  );
+}
+
+function Recherche({ projets, valeur, changer }: { projets: CarteVue[]; valeur: string; changer: (v: string | null) => void }) {
+  const trouves = filtrerProjets(projets, valeur).slice(0, 8);
+  return (
+    <div className="recherche-fond" onClick={() => changer(null)}>
+      <div className="recherche" role="dialog" aria-label="Recherche rapide" onClick={(e) => e.stopPropagation()}>
+        <input autoFocus aria-label="Chercher un projet" placeholder="Chercher un projet…" value={valeur} onChange={(e) => changer(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && trouves[0]) { changer(null); naviguer(`/projet/${trouves[0].id}`); } }} />
+        <ul>
+          {trouves.map((p) => (
+            <li key={p.id}><button onClick={() => { changer(null); naviguer(`/projet/${p.id}`); }}>{p.icone ?? "•"} {p.nom}</button></li>
+          ))}
+          {trouves.length === 0 && <li className="discret">Aucun projet trouvé.</li>}
+        </ul>
+      </div>
+    </div>
   );
 }

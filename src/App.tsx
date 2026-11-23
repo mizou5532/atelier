@@ -3,6 +3,7 @@ import { Accueil } from "./pages/Accueil";
 import { Projet } from "./pages/Projet";
 import { Quotas } from "./pages/Quotas";
 import { Reglages } from "./pages/Reglages";
+import { Semaine } from "./pages/Semaine";
 
 export function naviguer(chemin: string) {
   history.pushState(null, "", chemin);
@@ -20,5 +21,6 @@ export function App() {
   if (projet) return <Projet id={Number(projet[1])} />;
   if (chemin === "/quotas") return <Quotas />;
   if (chemin === "/reglages") return <Reglages />;
+  if (chemin === "/semaine") return <Semaine />;
   return <Accueil />;
 }

@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import type { Contexte } from "../index";
 import { STATUTS } from "../../shared/types";
-import { construireAccueil, construireDetail } from "../vue";
+import { construireAccueil, construireActivite, construireDetail } from "../vue";
 import { construireQuotas } from "./quotas";
 import { corps, invalide } from "./outils";
 
@@ -14,6 +14,21 @@ export const routesProjets = new Hono<Contexte>();
 routesProjets.get("/accueil", async (c) => {
   const maintenant = new Date();
   return c.json({ ...(await construireAccueil(c.env.DB, maintenant)), quotas: await construireQuotas(c.env.DB, maintenant) });
+});
+
+routesProjets.get("/activite", async (c) => c.json(await construireActivite(c.env.DB, new Date())));
+
+routesProjets.get("/semaine", async (c) => {
+  const v = await construireAccueil(c.env.DB, new Date());
+  const tous = [...v.enCours, ...v.endormis, ...v.archives];
+  return c.json({
+    actifs: tous.filter((p) => p.heuresSemaine > 0 || (p.deltaSemaine ?? 0) !== 0)
+      .sort((a, b) => b.heuresSemaine - a.heuresSemaine)
+      .map((p) => ({ id: p.id, nom: p.nom, icone: p.icone, couleur: p.couleur, heures: p.heuresSemaine, delta: p.deltaSemaine, avancement: p.avancement, derniereEtape: p.derniereEtape })),
+    echecs: tous.filter((p) => p.voyant?.etat === "echec").map((p) => ({ id: p.id, nom: p.nom, url: p.voyant!.url, relatif: p.voyant!.relatif })),
+    endormis: v.endormis.map((p) => ({ id: p.id, nom: p.nom, relatif: p.derniere.relatif, derniereEtape: p.derniereEtape, prochaineEtape: p.prochaineEtape })),
+    heuresTotal: Math.round(tous.reduce((s, p) => s + p.heuresSemaine, 0) * 10) / 10,
+  });
 });
 
 routesProjets.get("/projets/:id", async (c) => {
@@ -45,6 +60,7 @@ routesProjets.patch("/projets/:id", async (c) => {
     notes: z.string().max(10_000).optional(),
     depotPrincipal: z.number().int().nullable().optional(),
     masque: z.boolean().optional(),
+    icone: z.string().trim().max(8).nullable().optional(),
   }).strict());
   if (!b) return invalide(c);
   const champs: [string, unknown][] = [];
@@ -55,6 +71,7 @@ routesProjets.patch("/projets/:id", async (c) => {
   if (b.notes !== undefined) champs.push(["notes", b.notes]);
   if (b.depotPrincipal !== undefined) champs.push(["depot_principal", b.depotPrincipal]);
   if (b.masque !== undefined) champs.push(["masque", b.masque ? 1 : 0]);
+  if (b.icone !== undefined) champs.push(["icone", b.icone || null]);
   champs.push(["modifie_le", new Date().toISOString()]);
   const r = await c.env.DB.prepare(`UPDATE projets SET ${champs.map(([k]) => `${k} = ?`).join(", ")} WHERE id = ?`)
     .bind(...champs.map(([, v]) => v), Number(c.req.param("id"))).run();

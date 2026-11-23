@@ -2,9 +2,30 @@ import type { CarteVue } from "../../shared/types";
 import { couleur } from "./couleurs";
 import { LienInterne } from "./Lien";
 
-export function Pastille({ carte, taille = 44 }: { carte: Pick<CarteVue, "couleur" | "initiales">; taille?: number }) {
+export function Pastille({ carte, taille = 44 }: { carte: Pick<CarteVue, "couleur" | "initiales"> & { icone?: string | null }; taille?: number }) {
   const c = couleur(carte.couleur);
-  return <span className="pastille" aria-hidden="true" style={{ background: c.doux, color: c.texte, width: taille, height: taille }}>{carte.initiales}</span>;
+  return (
+    <span className="pastille" aria-hidden="true" style={{ background: c.doux, color: c.texte, width: taille, height: taille, fontSize: carte.icone ? taille * 0.5 : undefined }}>
+      {carte.icone || carte.initiales}
+    </span>
+  );
+}
+
+export function Courbe({ points, nom, couleurNom, largeur = 120, hauteur = 32 }: { points: { avancement: number }[]; nom: string; couleurNom: string; largeur?: number; hauteur?: number }) {
+  if (points.length < 2) return null;
+  const c = couleur(couleurNom);
+  const pas = largeur / (points.length - 1);
+  const xy = points.map((p, i) => `${(i * pas).toFixed(1)},${(hauteur - 2 - (p.avancement / 100) * (hauteur - 4)).toFixed(1)}`).join(" ");
+  return (
+    <svg className="courbe" width={largeur} height={hauteur} viewBox={`0 0 ${largeur} ${hauteur}`} role="img" aria-label={`Courbe d'avancement de ${nom}`}>
+      <polyline points={xy} fill="none" stroke={c.fort} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function texteHeures(h: number): string | null {
+  if (!h) return null;
+  return h < 1 ? "moins d'1 h cette semaine" : `~${Math.round(h)} h cette semaine`;
 }
 
 export function Barre({ valeur, nom }: { valeur: number | null; nom: string }) {
@@ -35,6 +56,15 @@ export function CarteProjet({ carte }: { carte: CarteVue }) {
       {carte.voyant && <Voyant v={carte.voyant} />}
       <Barre valeur={carte.avancement} nom={carte.couleur} />
       {carte.jalonsResume && <p className="discret mini-note">{carte.jalonsResume}</p>}
+      {(carte.historique?.length > 1 || carte.deltaSemaine || carte.heuresSemaine > 0) && (
+        <div className="carte-suivi">
+          <Courbe points={carte.historique ?? []} nom={carte.nom} couleurNom={carte.couleur} />
+          <div className="carte-suivi-textes">
+            {carte.deltaSemaine ? <span className={carte.deltaSemaine > 0 ? "hausse" : "baisse"}>{carte.deltaSemaine > 0 ? "+" : ""}{carte.deltaSemaine} % cette semaine</span> : null}
+            {texteHeures(carte.heuresSemaine) && <span className="discret">{texteHeures(carte.heuresSemaine)}</span>}
+          </div>
+        </div>
+      )}
       {carte.jalonsAValider && <LienInterne vers={`/projet/${carte.id}`} className="carte-note">Jalons proposés : à valider ›</LienInterne>}
       {etape && <p className="carte-etape">{etape}</p>}
       {carte.estimeParIA && <p className="discret mini-note">estimé par l'IA</p>}

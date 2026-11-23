@@ -66,6 +66,10 @@ export function Projet({ id }: { id?: number }) {
               <input type="number" min={0} max={100} defaultValue={d.avancement ?? ""} key={`a${d.avancement}`}
                 onBlur={(e) => { const v = e.target.value === "" ? null : Math.max(0, Math.min(100, Math.round(Number(e.target.value)))); if (v !== d.avancement) agir(() => api.modifierProjet(d.id, { avancement: v })); }} />
             </label>
+            <label>Icône
+              <input defaultValue={d.icone ?? ""} key={`i${d.icone}`} maxLength={8} style={{ width: 80 }}
+                onBlur={(e) => e.target.value !== (d.icone ?? "") && agir(() => api.modifierProjet(d.id, { icone: e.target.value }))} />
+            </label>
             <label>Statut
               <select value={d.statutChoisi ?? d.statut} onChange={(e) => agir(() => api.modifierProjet(d.id, { statut: e.target.value }))}>
                 {Object.entries(NOMS_STATUTS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
@@ -153,6 +157,11 @@ export function Projet({ id }: { id?: number }) {
 function Jalons({ d: brut, agir }: { d: DetailVue; agir: (a: () => Promise<unknown>) => Promise<void> }) {
   const d = { ...brut, jalons: brut.jalons ?? [], jalonsEtat: brut.jalonsEtat ?? "aucun" };
   const [nouveau, setNouveau] = useState("");
+  const [fete, setFete] = useState(false);
+  const cocher = (id: number, fait: boolean) => agir(async () => {
+    await api.modifierJalon(id, { fait });
+    if (fait) { setFete(true); setTimeout(() => setFete(false), 3000); }
+  });
   const ajout = (
     <form className="reglage-ligne" onSubmit={(e) => { e.preventDefault(); if (nouveau.trim()) agir(async () => { await api.ajouterJalon(d.id, nouveau.trim()); setNouveau(""); }); }}>
       <label>Nouveau jalon<input value={nouveau} onChange={(e) => setNouveau(e.target.value)} maxLength={120} /></label>
@@ -168,7 +177,7 @@ function Jalons({ d: brut, agir }: { d: DetailVue; agir: (a: () => Promise<unkno
         {d.jalons.map((j) => (
           <li key={j.id}>
             <label className="jalon">
-              <input type="checkbox" checked={j.fait} aria-label={j.titre} onChange={(e) => agir(() => api.modifierJalon(j.id, { fait: e.target.checked }))} />
+              <input type="checkbox" checked={j.fait} aria-label={j.titre} onChange={(e) => cocher(j.id, e.target.checked)} />
               <span className={j.fait ? "jalon-fait" : ""}>{j.titre}</span>
             </label>
             {j.cochePar === "ia" && <span className="discret">coché par l'IA</span>}
@@ -176,6 +185,7 @@ function Jalons({ d: brut, agir }: { d: DetailVue; agir: (a: () => Promise<unkno
           </li>
         ))}
       </ul>
+      {fete && <p className="fete" role="status">🎉 Jalon terminé!</p>}
       {d.jalonsEtat === "propose" && <div className="choix"><button className="bouton-fort" onClick={() => agir(() => api.validerJalons(d.id))}>Valider ces jalons</button></div>}
       {ajout}
       {d.jalons.length > 0 && <div className="choix"><button onClick={() => { if (confirm("Effacer ces jalons et en demander de nouveaux à l'agent?")) agir(() => api.regenererJalons(d.id)); }}>Refaire la proposition</button></div>}

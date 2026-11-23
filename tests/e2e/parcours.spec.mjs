@@ -18,7 +18,7 @@ test("parcours complet à l'ordinateur", async () => {
     "GET /api/projets/1": DETAIL,
     "GET /api/quotas": { quotas: [], aAssocier: [], courriels: [] },
   } });
-  await page.getByText("Bon retour. 3 projets avancent.").waitFor();
+  await page.getByText("3 projets avancent.").waitFor();
   await page.getByRole("link", { name: "IPTV maison" }).click();
   await page.getByRole("heading", { name: "IPTV maison" }).waitFor();
   await page.getByRole("button", { name: /Reprendre/ }).click();

@@ -8,12 +8,12 @@ after(async () => { await navigateur.close(); site.fermer(); });
 
 test("phrase d'accueil et cartes en cours", async () => {
   const { page, fermer } = await ouvrir(navigateur, site.url);
-  await page.getByText("Bon retour. 3 projets avancent.").waitFor();
+  await page.getByText("3 projets avancent.").waitFor();
   const cartes = page.locator("[data-carte]");
   assert.equal(await cartes.count(), 3);
   const iptv = cartes.filter({ hasText: "IPTV maison" });
   assert.ok(await iptv.getByText("70 %").isVisible());
-  assert.ok(await iptv.getByText("IM", { exact: true }).isVisible());
+  assert.ok(await iptv.getByText("📺", { exact: true }).isVisible(), "l'icône remplace les initiales");
   assert.ok(await iptv.getByText("en travail").isVisible());
   assert.ok(await cartes.filter({ hasText: "Appli sportive" }).getByText("—", { exact: true }).isVisible());
   assert.ok(await cartes.filter({ hasText: "Appli sportive" }).getByText("estimé par l'IA").isVisible());
@@ -63,7 +63,7 @@ test("bandeau quand la clé GitHub est refusée", async () => {
 
 test("téléphone : une colonne, pas de défilement horizontal", async () => {
   const { page, fermer } = await ouvrir(navigateur, site.url, { largeur: 390, hauteur: 844 });
-  await page.getByText("Bon retour. 3 projets avancent.").waitFor();
+  await page.getByText("3 projets avancent.").waitFor();
   const deborde = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
   assert.equal(deborde, false);
   await fermer();
