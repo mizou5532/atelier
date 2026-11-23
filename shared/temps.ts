@@ -32,3 +32,13 @@ export function heureMontreal(iso: string): string {
 export function jourMontreal(iso: string): string {
   return formatJour.format(new Date(iso));
 }
+
+export function dans(iso: string, maintenant: Date): string {
+  const minutes = Math.ceil((new Date(iso).getTime() - maintenant.getTime()) / 60_000);
+  if (minutes <= 0) return "maintenant";
+  if (minutes < 60) return `dans ${minutes} min`;
+  const heures = Math.round(minutes / 60);
+  if (heures < 24) return `dans ${heures} h`;
+  const jours = Math.round(heures / 24);
+  return `dans ${jours} jour${jours > 1 ? "s" : ""}`;
+}
