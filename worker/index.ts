@@ -1,6 +1,9 @@
 import { Hono } from "hono";
 import type { Env } from "./bd";
 import { synchroniser } from "./synchro";
+import { routesProjets } from "./routes/projets";
+import { routesDepots } from "./routes/depots";
+import { routesReglages } from "./routes/reglages";
 import { certificatsAccess, verifierJetonAcces, type ChercherCertificats } from "./acces";
 
 export type Dependances = { certificats: ChercherCertificats };
@@ -37,6 +40,9 @@ export function creerApp(deps: Dependances = { certificats: certificatsAccess })
   app.get("/api/sante", (c) => c.json({ ok: true }));
   app.post("/api/rafraichir", async (c) => c.json(await synchroniser(c.env, new Date())));
   app.post(ROUTE_SERVICE, (c) => c.body(null, 204));
+  app.route("/api", routesProjets);
+  app.route("/api", routesDepots);
+  app.route("/api", routesReglages);
 
   return app;
 }
