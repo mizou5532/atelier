@@ -29,4 +29,5 @@ Tests : `npm test` (vitest) et `npm run test:e2e` (navigateur, API simulée) tou
 - `scripts/barre-etat/` : script installé sur les ordinateurs du propriétaire.
 
 ## Journal
+- **2026-11-23 (après-midi) — Claude Code** : mise en ligne (https://atelier.hamzahlal86.workers.dev), cadenas Access (session 1 mois, politique « Atelier - propriétaire »), clés GitHub et Gemini transmises par GitHub Actions (secrets ATELIER_GITHUB_CLE, ATELIER_GEMINI_CLE), fiches ETAT.md ajoutées à Pistes et à l'appli sportive, agent IA (worker/agent.ts) qui résume les dépôts sans fiche. IPTV : écriture refusée par la protection de la session, résumé par l'agent à la place. Reste : script des quotas Claude (facultatif).
 - **2026-11-23 — Claude Code** : conception approuvée, maquettes (direction A choisie), plan en 12 étapes, construction des étapes 1 à 12 en local avec tests. Décisions notées dans le plan et ci-dessus. Reste : la mise en ligne (gestes du propriétaire).

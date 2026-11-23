@@ -1,10 +1,10 @@
 ---
 projet: Atelier
 statut: en cours
-avancement: 85
-derniere_etape: Version 1 bâtie et testée (accueil, fiches projets, idées, quotas IA, script de barre d'état)
-prochaine_etape: Mise en ligne avec le propriétaire (dépôt GitHub, cadenas Cloudflare, clé GitHub) puis vérifications sur l'iPhone et Claude Code
-mis_a_jour: 2026-11-23 06:00
+avancement: 95
+derniere_etape: Atelier en ligne, cadenas, clés GitHub et Gemini, agent qui résume les projets sans fiche
+prochaine_etape: Utiliser Atelier au quotidien; plus tard le script des quotas Claude
+mis_a_jour: 2026-11-23 15:45
 par: Claude Code
 liens:
   - Maquettes: https://claude.ai/artifact/Ty9PkEvXW2hRNGBn8owqD6
