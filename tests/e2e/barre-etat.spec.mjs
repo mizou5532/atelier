@@ -22,13 +22,15 @@ test("l'envoi ne contient que le courriel et les quotas", () => {
   assert.equal(construireEnvoi(ENTREE, null), null);
 });
 
-test("un seul envoi par minute pour les mêmes chiffres", () => {
+test("au plus un envoi par minute, et seulement si les chiffres changent", () => {
   const dossier = mkdtempSync(join(tmpdir(), "atelier-"));
   const e = construireEnvoi(ENTREE, "moi@exemple.ca");
+  const autre = { ...e, session: { utilise_pct: 41, reinit_le: 1795450000 } };
   assert.equal(doitEnvoyer(dossier, e, 1_000_000), true);
-  assert.equal(doitEnvoyer(dossier, e, 1_030_000), false);
-  assert.equal(doitEnvoyer(dossier, { ...e, session: { utilise_pct: 41, reinit_le: 1795450000 } }, 1_031_000), true);
-  assert.equal(doitEnvoyer(dossier, { ...e, session: { utilise_pct: 41, reinit_le: 1795450000 } }, 1_100_000), true);
+  assert.equal(doitEnvoyer(dossier, autre, 1_030_000), false, "changé mais moins d'une minute après : on attend");
+  assert.equal(doitEnvoyer(dossier, e, 1_100_000), false, "pareil après une minute : rien à envoyer");
+  assert.equal(doitEnvoyer(dossier, autre, 1_100_000), true, "changé et plus d'une minute après : on envoie");
+  assert.equal(doitEnvoyer(dossier, autre, 1_100_000 + 16 * 60_000), true, "pareil mais 15 min plus tard : signe de vie");
   assert.ok(existsSync(join(dossier, "dernier-envoi.json")));
   assert.ok(!readFileSync(join(dossier, "dernier-envoi.json"), "utf8").includes("secret-de-session"));
 });

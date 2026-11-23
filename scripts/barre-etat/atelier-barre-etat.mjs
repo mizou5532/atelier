@@ -30,12 +30,15 @@ export function construireEnvoi(entree, courriel) {
   return { courriel: courriel.toLowerCase(), ...(session ? { session } : {}), ...(semaine ? { semaine } : {}) };
 }
 
+/** Au plus un envoi par minute, et seulement si les chiffres ont changé (plus un signe de vie toutes les 15 min). */
 export function doitEnvoyer(dossier, envoi, maintenant = Date.now()) {
   const fichier = join(dossier, "dernier-envoi.json");
   const empreinte = JSON.stringify(envoi);
   try {
     const avant = JSON.parse(readFileSync(fichier, "utf8"));
-    if (avant.empreinte === empreinte && maintenant - avant.quand < 60_000) return false;
+    const ecoule = maintenant - avant.quand;
+    if (ecoule < 60_000) return false;
+    if (avant.empreinte === empreinte && ecoule < 15 * 60_000) return false;
   } catch {}
   mkdirSync(dossier, { recursive: true });
   writeFileSync(fichier, JSON.stringify({ empreinte, quand: maintenant }));

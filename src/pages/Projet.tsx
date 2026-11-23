@@ -97,7 +97,7 @@ export function Projet({ id }: { id?: number }) {
             {d.liens.map((l) => (
               <span key={l.id} className="lien-bloc">
                 <a href={l.url} target="_blank" rel="noreferrer">{l.nom}</a>
-                {l.source === "main" && <button aria-label={`Retirer ${l.nom}`} className="mini" onClick={() => agir(() => api.retirerLien(d.id, l.id))}>×</button>}
+                {<button aria-label={`Retirer ${l.nom}`} className="mini" onClick={() => agir(() => api.retirerLien(d.id, l.id))}>×</button>}
               </span>
             ))}
             <button onClick={() => setAjoutLien(true)}>+ Lien</button>

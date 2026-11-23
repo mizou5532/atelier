@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { QuotaVue } from "../../shared/types";
 import { api } from "../api";
 import { LienInterne } from "../composants/Lien";
+import { lireSaisieQuota } from "../../shared/quotas";
 
 type Donnees = { quotas: QuotaVue[]; aAssocier: string[]; courriels: { courriel: string; compteId: number }[] };
 
@@ -68,16 +69,20 @@ function SaisieMain({ compteId, enregistrer }: { compteId: number; enregistrer: 
   const [modele, setModele] = useState("Gemini Pro");
   const [reste, setReste] = useState("");
   const [heures, setHeures] = useState("");
+  const [erreur, setErreur] = useState<string | null>(null);
   return (
     <form className="reglage-ligne" onSubmit={(e) => {
       e.preventDefault();
-      const r = reste.trim().toLowerCase();
-      enregistrer({ compteId, fenetre: modele.trim(), reste: r === "bloqué" || r === "bloque" ? "bloque" : Math.max(0, Math.min(100, Number(r))), revientDansHeures: Number(heures.replace(",", ".")) });
+      const lu = lireSaisieQuota(reste, heures);
+      if (!lu) { setErreur("Je n'ai pas compris. Exemples : « 60 » ou « bloqué », et « 3 h » ou « 2 jours »."); return; }
+      setErreur(null);
+      enregistrer({ compteId, fenetre: modele.trim(), ...lu });
     }}>
       <label>Modèle<input value={modele} onChange={(e) => setModele(e.target.value)} required /></label>
       <label>Il reste (%)<input value={reste} onChange={(e) => setReste(e.target.value)} required placeholder="60 ou bloqué" inputMode="numeric" /></label>
-      <label>Revient dans (heures)<input value={heures} onChange={(e) => setHeures(e.target.value)} required inputMode="decimal" /></label>
+      <label>Revient dans (heures)<input value={heures} onChange={(e) => setHeures(e.target.value)} required placeholder="3 h ou 2 jours" /></label>
       <div className="choix"><button type="submit">Enregistrer</button></div>
+      {erreur && <p className="carte-note" role="alert">{erreur}</p>}
     </form>
   );
 }

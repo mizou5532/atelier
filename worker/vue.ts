@@ -54,7 +54,7 @@ const sansPrive = ({ _fiche, _principal, ...c }: CarteVue & { _fiche?: unknown; 
 export async function construireAccueil(db: D1Database, maintenant: Date): Promise<Omit<AccueilVue, "quotas">> {
   const { projets, depots, liens } = await donnees(db);
   const seuil = Number((await lireReglage(db, "seuil_endormi_jours")) ?? "30");
-  const etat = await db.prepare("SELECT * FROM etat_synchro WHERE id = 1").first<{ derniere_reussite: string | null; erreur: "injoignable" | "cle_refusee" | null; erreur_depuis: string | null }>();
+  const etat = await db.prepare("SELECT * FROM etat_synchro WHERE id = 1").first<{ derniere_reussite: string | null; erreur: "injoignable" | "cle_refusee" | "interne" | null; erreur_depuis: string | null }>();
   const vue: Omit<AccueilVue, "quotas"> = {
     maj: { derniereReussite: etat?.derniere_reussite ?? null, erreur: etat?.erreur ?? null, erreurDepuis: etat?.erreur_depuis ?? null },
     aClasser: depots.filter((d) => d.projet_id === null && !d.masque && !d.disparu)

@@ -55,7 +55,7 @@ export type QuotaVue = {
 };
 
 export type AccueilVue = {
-  maj: { derniereReussite: string | null; erreur: "injoignable" | "cle_refusee" | null; erreurDepuis: string | null };
+  maj: { derniereReussite: string | null; erreur: "injoignable" | "cle_refusee" | "interne" | null; erreurDepuis: string | null };
   aClasser: DepotVue[];
   enCours: CarteVue[];
   endormis: CarteVue[];

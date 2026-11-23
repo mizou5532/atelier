@@ -1,7 +1,7 @@
 // Client GitHub en lecture seule.
 export type DepotGithub = {
   id: number; name: string; full_name: string; html_url: string; homepage: string | null;
-  private: boolean; archived: boolean; default_branch: string; pushed_at: string;
+  private: boolean; archived: boolean; default_branch: string; pushed_at: string | null; created_at?: string;
 };
 
 export class ErreurGithub extends Error {

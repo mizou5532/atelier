@@ -95,6 +95,11 @@ routesProjets.post("/projets/:id/liens", async (c) => {
 });
 
 routesProjets.delete("/projets/:id/liens/:lien", async (c) => {
-  await c.env.DB.prepare("DELETE FROM liens WHERE id = ? AND projet_id = ?").bind(Number(c.req.param("lien")), Number(c.req.param("id"))).run();
+  const projet = Number(c.req.param("id"));
+  const lien = await c.env.DB.prepare("SELECT url, source FROM liens WHERE id = ? AND projet_id = ?").bind(Number(c.req.param("lien")), projet).first<{ url: string; source: string }>();
+  if (!lien) return c.body(null, 204);
+  const ecritures = [c.env.DB.prepare("DELETE FROM liens WHERE id = ? AND projet_id = ?").bind(Number(c.req.param("lien")), projet)];
+  if (lien.source !== "main") ecritures.push(c.env.DB.prepare("INSERT OR IGNORE INTO liens_ignores (projet_id, url) VALUES (?, ?)").bind(projet, lien.url));
+  await c.env.DB.batch(ecritures);
   return c.body(null, 204);
 });

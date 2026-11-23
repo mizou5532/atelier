@@ -135,3 +135,27 @@ describe("clé refusée en cours de lecture d'une fiche", () => {
     expect(await depot(12)).toBeNull();
   });
 });
+
+describe("échecs internes de la synchronisation", () => {
+  it("un rattachement de départ vers un projet supprimé ne bloque rien", async () => {
+    await db.prepare("INSERT OR REPLACE INTO rattachements_depart (nom_depot, projet_id) VALUES ('fantome', 9999)").run();
+    const r = await synchroniser(e, MAINTENANT, faux([gh(20, "fantome")]).f);
+    expect(r.erreur).toBeUndefined();
+    expect((await depot(20))?.projet_id).toBeNull();
+  });
+
+  it("un dépôt sans date de push (dépôt vide) passe quand même", async () => {
+    const vide = { ...gh(21, "vide"), pushed_at: null as unknown as string, created_at: "2026-11-01T00:00:00Z" };
+    const r = await synchroniser(e, MAINTENANT, faux([vide as any]).f);
+    expect(r.erreur).toBeUndefined();
+    expect((await depot(21))?.pousse_le).toBe("2026-11-01T00:00:00Z");
+  });
+
+  it("une erreur imprévue est notée (bandeau) au lieu d'être silencieuse", async () => {
+    const casse = { ...gh(22, "casse"), full_name: null as unknown as string };
+    const r = await synchroniser(e, MAINTENANT, faux([casse as any]).f);
+    expect(r.erreur).toBe("interne");
+    const etat = await db.prepare("SELECT erreur FROM etat_synchro").first<{ erreur: string }>();
+    expect(etat?.erreur).toBe("interne");
+  });
+});

@@ -98,3 +98,21 @@ describe("routes des quotas", () => {
     expect(deux.fenetres.find((f: any) => f.fenetre === "session").reste).toBe(90);
   });
 });
+
+import { lireSaisieQuota } from "../shared/quotas";
+
+describe("saisie rapide d'un quota", () => {
+  it("comprend les façons naturelles d'écrire", () => {
+    expect(lireSaisieQuota("60", "3")).toEqual({ reste: 60, revientDansHeures: 3 });
+    expect(lireSaisieQuota("60 %", "3 h")).toEqual({ reste: 60, revientDansHeures: 3 });
+    expect(lireSaisieQuota(" 45% ", "1,5 h")).toEqual({ reste: 45, revientDansHeures: 1.5 });
+    expect(lireSaisieQuota("bloqué", "2 jours")).toEqual({ reste: "bloque", revientDansHeures: 48 });
+    expect(lireSaisieQuota("Bloque", "4 j")).toEqual({ reste: "bloque", revientDansHeures: 96 });
+  });
+  it("refuse ce qui n'a pas de sens", () => {
+    expect(lireSaisieQuota("abc", "3")).toBeNull();
+    expect(lireSaisieQuota("60", "")).toBeNull();
+    expect(lireSaisieQuota("140", "3")).toBeNull();
+    expect(lireSaisieQuota("60", "demain")).toBeNull();
+  });
+});

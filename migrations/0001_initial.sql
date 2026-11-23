@@ -79,6 +79,6 @@ CREATE TABLE reglages (
 CREATE TABLE etat_synchro (
   id INTEGER PRIMARY KEY CHECK (id = 1),
   derniere_reussite TEXT,
-  erreur TEXT CHECK (erreur IN ('injoignable','cle_refusee')),
+  erreur TEXT CHECK (erreur IN ('injoignable','cle_refusee','interne')),
   erreur_depuis TEXT
 );

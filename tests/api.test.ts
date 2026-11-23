@@ -14,7 +14,7 @@ const FICHE_PISTES = JSON.stringify({ statut: "en_cours", avancement: 80, procha
 
 beforeEach(async () => {
   await db.batch([
-    db.prepare("DELETE FROM liens"), db.prepare("DELETE FROM depots"),
+    db.prepare("DELETE FROM liens"), db.prepare("DELETE FROM liens_ignores"), db.prepare("DELETE FROM depots"),
     db.prepare("UPDATE projets SET avancement = NULL, statut_ignore = NULL, avancement_ignore = NULL, masque = 0, statut = CASE id WHEN 8 THEN 'idee' ELSE 'en_cours' END"),
     db.prepare("DELETE FROM projets WHERE id > 8"),
   ]);
@@ -141,5 +141,20 @@ describe("API", () => {
     await api("/api/reglages", { method: "PATCH", corps: { seuilEndormiJours: 400 } });
     expect((await accueil()).endormis.map((p: any) => p.nom)).not.toContain("MonDroit.ca");
     await api("/api/reglages", { method: "PATCH", corps: { seuilEndormiJours: 30 } });
+  });
+});
+
+describe("liens ajoutés automatiquement", () => {
+  it("se retirent et ne reviennent pas à la synchronisation suivante", async () => {
+    const { completerLiens } = await import("../worker/synchro");
+    await db.prepare("UPDATE depots SET site = 'https://vieux-site.exemple/' WHERE github_id = 3").run();
+    await completerLiens(db);
+    const avant = ((await (await api("/api/projets/3")).json()) as any).liens;
+    const auto = avant.find((l: any) => l.url === "https://vieux-site.exemple/");
+    expect(auto.source).toBe("github");
+    expect((await api(`/api/projets/3/liens/${auto.id}`, { method: "DELETE" })).status).toBe(204);
+    await completerLiens(db);
+    const apres = ((await (await api("/api/projets/3")).json()) as any).liens;
+    expect(apres.map((l: any) => l.url)).not.toContain("https://vieux-site.exemple/");
   });
 });

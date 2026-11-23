@@ -48,7 +48,7 @@ test("liens : ajouter et retirer", async () => {
   await page.waitForTimeout(100);
   assert.ok(envois.some((e) => e.methode === "POST" && e.chemin === "/api/projets/1/liens" && e.corps.url === "https://vercel.com"));
   assert.ok(envois.some((e) => e.methode === "DELETE" && e.chemin === "/api/projets/1/liens/8"));
-  assert.equal(await page.getByRole("button", { name: "Retirer Site" }).count(), 0);
+  assert.equal(await page.getByRole("button", { name: "Retirer Site" }).count(), 1, "les liens automatiques se retirent aussi");
   await fermer();
 });
 

@@ -27,7 +27,12 @@ export function Accueil() {
   }, []);
   useEffect(() => { charger(); }, [charger]);
 
-  const agir = async (action: () => Promise<unknown>) => { await action(); setOuvert(null); await charger(); };
+  const [echec, setEchec] = useState<string | null>(null);
+  const agir = async (action: () => Promise<unknown>, message = "Ça n'a pas marché. Réessaie dans un instant.") => {
+    try { await action(); setEchec(null); } catch { setEchec(message); }
+    setOuvert(null);
+    await charger();
+  };
 
   if (!vue) return <main className="page"><p className="discret">{erreur ?? "Chargement…"}</p></main>;
   const tous = [...vue.enCours, ...vue.endormis, ...vue.idees, ...vue.archives];
@@ -42,17 +47,21 @@ export function Accueil() {
         <nav className="entete-actions" aria-label="Actions">
           <LienInterne vers="/quotas" className="bouton-doux">Quotas</LienInterne>
           <LienInterne vers="/reglages" className="bouton-doux">Réglages</LienInterne>
-          <button className="bouton-doux" onClick={() => agir(api.rafraichir)}>Rafraîchir</button>
+          <button className="bouton-doux" onClick={() => agir(api.rafraichir, "La mise à jour n'a pas marché. Les dernières données connues restent affichées.")}>Rafraîchir</button>
           <button className="bouton-fort" onClick={() => setNouvelleIdee(true)}>+ Nouvelle idée</button>
         </nav>
       </header>
 
       {vue.maj.erreur && (
         <p className="bandeau" role="alert">
-          {vue.maj.erreur === "cle_refusee" ? "Clé GitHub refusée : à renouveler" : `GitHub injoignable depuis ${vue.maj.erreurDepuis ? heureMontreal(vue.maj.erreurDepuis) : "un moment"}`}
+          {vue.maj.erreur === "cle_refusee" ? "Clé GitHub refusée : à renouveler"
+            : vue.maj.erreur === "interne" ? "La mise à jour automatique a planté (problème dans Atelier, pas chez GitHub)"
+            : `GitHub injoignable depuis ${vue.maj.erreurDepuis ? heureMontreal(vue.maj.erreurDepuis) : "un moment"}`}
           {" "}— les dernières données connues restent affichées.
         </p>
       )}
+
+      {echec && <p className="bandeau" role="alert">{echec}</p>}
 
       {nouvelleIdee && <FormIdee fermer={() => setNouvelleIdee(false)} garder={(nom, notes) => agir(async () => { await api.creerProjet({ nom, statut: "idee", notes }); setNouvelleIdee(false); })} />}
 

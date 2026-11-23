@@ -66,3 +66,19 @@ test("téléphone : une colonne, pas de défilement horizontal", async () => {
   assert.equal(deborde, false);
   await fermer();
 });
+
+test("bandeau quand la synchronisation plante", async () => {
+  const a = accueilExemple();
+  a.maj = { derniereReussite: null, erreur: "interne", erreurDepuis: "2026-11-23T14:05:00Z" };
+  const { page, fermer } = await ouvrir(navigateur, site.url, { accueil: a });
+  await page.getByText("La mise à jour automatique a planté").waitFor();
+  await fermer();
+});
+
+test("Rafraîchir qui échoue affiche un message", async () => {
+  const { page, fermer } = await ouvrir(navigateur, site.url);
+  await page.route("**/api/rafraichir", (r) => r.fulfill({ status: 500, body: "" }));
+  await page.getByRole("button", { name: "Rafraîchir" }).click();
+  await page.getByText("La mise à jour n'a pas marché").waitFor();
+  await fermer();
+});

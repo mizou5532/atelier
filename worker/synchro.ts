@@ -3,7 +3,7 @@ import { lireFiche } from "../shared/fiche";
 import type { Fiche } from "../shared/types";
 import { derniersCommits, ErreurGithub, lireEtatMd, listerDepots, type DepotGithub } from "./github";
 
-export async function synchroniser(env: Env, maintenant: Date, f: typeof fetch = fetch): Promise<{ nouveaux: number; erreur?: "injoignable" | "cle_refusee" }> {
+export async function synchroniser(env: Env, maintenant: Date, f: typeof fetch = fetch): Promise<{ nouveaux: number; erreur?: "injoignable" | "cle_refusee" | "interne" }> {
   const db = env.DB;
   const quand = maintenant.toISOString();
   let liste: DepotGithub[];
@@ -15,17 +15,31 @@ export async function synchroniser(env: Env, maintenant: Date, f: typeof fetch =
     return { nouveaux: 0, erreur: type };
   }
 
+  try {
+    return await appliquer(db, env.GITHUB_CLE, liste, quand, f);
+  } catch (e) {
+    console.error("Synchronisation : erreur interne", e);
+    await noterErreur(db, "interne", quand);
+    return { nouveaux: 0, erreur: "interne" };
+  }
+}
+
+async function appliquer(db: D1Database, cle: string, liste: DepotGithub[], quand: string, f: typeof fetch): Promise<{ nouveaux: number; erreur?: "cle_refusee" }> {
+  const env = { GITHUB_CLE: cle };
+  const projetsExistants = new Set((await db.prepare("SELECT id FROM projets").all<{ id: number }>()).results.map((p) => p.id));
   const existants = new Map((await db.prepare("SELECT * FROM depots").all<DepotBrut>()).results.map((d) => [d.github_id, d]));
   const depart = new Map((await db.prepare("SELECT * FROM rattachements_depart").all<{ nom_depot: string; projet_id: number }>()).results.map((r) => [r.nom_depot, r.projet_id]));
   const ecritures: D1PreparedStatement[] = [];
   let nouveaux = 0;
 
-  for (const g of liste) {
+  for (const brut of liste) {
+    const g = { ...brut, pushed_at: brut.pushed_at ?? brut.created_at ?? quand };
     const avant = existants.get(g.id);
     if (!avant) {
-      const projet = depart.get(g.name) ?? null;
+      const voulu = depart.get(g.name);
+      const projet = voulu !== undefined && projetsExistants.has(voulu) ? voulu : null;
       if (projet === null) nouveaux++;
-      else ecritures.push(db.prepare("DELETE FROM rattachements_depart WHERE nom_depot = ?").bind(g.name));
+      if (voulu !== undefined) ecritures.push(db.prepare("DELETE FROM rattachements_depart WHERE nom_depot = ?").bind(g.name));
       ecritures.push(db.prepare(
         "INSERT INTO depots (github_id, nom_complet, url, site, prive, archive, branche, pousse_le, projet_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
       ).bind(g.id, g.full_name, g.html_url, g.homepage || null, g.private ? 1 : 0, g.archived ? 1 : 0, g.default_branch, g.pushed_at, projet));
@@ -77,7 +91,8 @@ export async function synchroniser(env: Env, maintenant: Date, f: typeof fetch =
 export async function completerLiens(db: D1Database): Promise<void> {
   const depots = (await db.prepare("SELECT * FROM depots WHERE projet_id IS NOT NULL AND disparu = 0").all<DepotBrut>()).results;
   const liens = (await db.prepare("SELECT projet_id, url FROM liens").all<{ projet_id: number; url: string }>()).results;
-  const connus = new Set(liens.map((l) => `${l.projet_id} ${l.url}`));
+  const ignores = (await db.prepare("SELECT projet_id, url FROM liens_ignores").all<{ projet_id: number; url: string }>()).results;
+  const connus = new Set([...liens, ...ignores].map((l) => `${l.projet_id} ${l.url}`));
   const ajouts: D1PreparedStatement[] = [];
   const ajouter = (projet: number, nom: string, url: string, source: "github" | "fiche") => {
     if (!/^https?:\/\//.test(url) || connus.has(`${projet} ${url}`)) return;
@@ -91,7 +106,7 @@ export async function completerLiens(db: D1Database): Promise<void> {
   if (ajouts.length) await db.batch(ajouts);
 }
 
-async function noterErreur(db: D1Database, type: "injoignable" | "cle_refusee", quand: string): Promise<void> {
+async function noterErreur(db: D1Database, type: "injoignable" | "cle_refusee" | "interne", quand: string): Promise<void> {
   await db.prepare("UPDATE etat_synchro SET erreur = ?, erreur_depuis = COALESCE(CASE WHEN erreur = ? THEN erreur_depuis END, ?) WHERE id = 1")
     .bind(type, type, quand).run();
 }
