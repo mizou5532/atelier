@@ -1,0 +1,25 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "atelier",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "atelier", "database_id": "A_REMPLIR_APRES_wrangler_d1_create", "migrations_dir": "migrations" }
+  ],
+  "workers_dev": true,
+  "preview_urls": false,
+  "vars": {
+    "ACCES_EQUIPE": "",
+    "ACCES_AUD": "",
+    "ACCES_COURRIEL": "",
+    "ACCES_SERVICE_ID": ""
+  },
+  "observability": { "enabled": true },
+  "triggers": { "crons": ["*/15 * * * *"] }
+}
