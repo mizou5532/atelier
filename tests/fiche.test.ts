@@ -71,3 +71,11 @@ describe("lecture de la fiche ETAT.md", () => {
     expect(r2.etat === "ok" && r2.fiche.enCours).toBe("");
   });
 });
+
+describe("tolérance", () => {
+  it("accepte un deux-points dans une valeur (écrit par une IA sans guillemets)", () => {
+    const r = lireFiche("---\nstatut: en cours\nprochaine_etape: En attente (en réserve : comparaison de gardiens LNH)\n---\n");
+    expect(r.etat).toBe("ok");
+    expect(r.etat === "ok" && r.fiche.prochaineEtape).toBe("En attente (en réserve : comparaison de gardiens LNH)");
+  });
+});

@@ -33,6 +33,25 @@ function sectionEnCours(corps: string): string {
   return suite.join("\n").trim();
 }
 
+/** Lecture de secours, ligne par ligne, quand une IA a écrit « clé: valeur » sans guillemets (ex. un « : » dans la valeur). */
+function lectureSimple(entete: string): Record<string, unknown> | null {
+  const sortie: Record<string, unknown> = {};
+  let liste: Record<string, string>[] | null = null;
+  for (const brute of entete.split(/\r?\n/)) {
+    const ligne = brute.replace(/\s{2,}#.*$/, "");
+    if (!ligne.trim()) continue;
+    const element = ligne.match(/^\s+-\s+([^:]+):\s*(.+)$/);
+    if (element && liste) { liste.push({ [element[1].trim()]: element[2].trim() }); continue; }
+    const paire = ligne.match(/^([a-z_]+):\s*(.*)$/);
+    if (!paire) return null;
+    if (paire[2] === "") { liste = []; sortie[paire[1]] = liste; continue; }
+    liste = null;
+    const v = paire[2].trim();
+    sortie[paire[1]] = /^\d+$/.test(v) ? Number(v) : v;
+  }
+  return sortie;
+}
+
 export function lireFiche(contenu: string): { etat: "ok"; fiche: Fiche } | { etat: "a_verifier"; raison: string } {
   const m = contenu.match(/^﻿?---\r?\n([\s\S]*?)\r?\n---\s*(?:\r?\n([\s\S]*))?$/);
   if (!m) return { etat: "a_verifier", raison: "en-tête absent" };
@@ -40,7 +59,8 @@ export function lireFiche(contenu: string): { etat: "ok"; fiche: Fiche } | { eta
   try {
     brut = parse(m[1]);
   } catch {
-    return { etat: "a_verifier", raison: "en-tête illisible" };
+    brut = lectureSimple(m[1]);
+    if (brut === null) return { etat: "a_verifier", raison: "en-tête illisible" };
   }
   const v = schema.safeParse(brut ?? {});
   if (!v.success) return { etat: "a_verifier", raison: "valeurs invalides" };

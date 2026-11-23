@@ -49,7 +49,7 @@ async function appliquer(db: D1Database, cle: string, liste: DepotGithub[], quan
       ).bind(g.full_name, g.html_url, g.homepage || null, g.private ? 1 : 0, g.archived ? 1 : 0, g.default_branch, g.pushed_at, g.id));
     }
 
-    if (avant?.fiche_lue_pour === g.pushed_at) continue;
+    if (avant?.fiche_lue_pour === g.pushed_at && avant.fiche_etat !== "a_verifier") continue;
     try {
       const [texte, commits] = await Promise.all([
         lireEtatMd(env.GITHUB_CLE, g.full_name, g.default_branch, f),
