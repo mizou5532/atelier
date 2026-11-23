@@ -1,7 +1,7 @@
 import type { DepotBrut, Env } from "./bd";
 import { lireFiche } from "../shared/fiche";
 import type { Fiche } from "../shared/types";
-import { derniersCommits, ErreurGithub, lireEtatMd, lireFichier, listerDepots, type DepotGithub } from "./github";
+import { derniereExecution, derniersCommits, ErreurGithub, lireEtatMd, lireFichier, listerDepots, type DepotGithub } from "./github";
 import { cocherJalons, proposerJalons, resumerDepot } from "./agent";
 
 export async function synchroniser(env: Env, maintenant: Date, f: typeof fetch = fetch): Promise<{ nouveaux: number; erreur?: "injoignable" | "cle_refusee" | "interne" }> {
@@ -18,6 +18,7 @@ export async function synchroniser(env: Env, maintenant: Date, f: typeof fetch =
 
   try {
     const r = await appliquer(db, env.GITHUB_CLE, liste, quand, f);
+    if (!r.erreur) await lireVoyants(db, env.GITHUB_CLE, f);
     if (!r.erreur && env.GEMINI_CLE) {
       await resumerSansFiche(db, env, f);
       await suivreJalons(db, env, f);
@@ -183,4 +184,17 @@ async function suivreJalons(db: D1Database, env: Env, f: typeof fetch): Promise<
       console.error("Agent : jalons impossibles pour", p.nom_complet, e);
     }
   }
+}
+
+/** Voyant vert/rouge : dernière exécution GitHub Actions des dépôts rattachés à un projet. */
+async function lireVoyants(db: D1Database, cle: string, f: typeof fetch): Promise<void> {
+  const depots = (await db.prepare("SELECT github_id, nom_complet, branche FROM depots WHERE projet_id IS NOT NULL AND masque = 0 AND disparu = 0")
+    .all<{ github_id: number; nom_complet: string; branche: string }>()).results;
+  const resultats = await Promise.all(depots.map((d) => derniereExecution(cle, d.nom_complet, d.branche, f)));
+  const ecritures = depots.map((d, i) => {
+    const x = resultats[i];
+    return db.prepare("UPDATE depots SET ci_etat = ?, ci_nom = ?, ci_quand = ?, ci_url = ? WHERE github_id = ?")
+      .bind(x?.etat ?? null, x?.nom ?? null, x?.quand ?? null, x?.url ?? null, d.github_id);
+  });
+  if (ecritures.length) await db.batch(ecritures);
 }

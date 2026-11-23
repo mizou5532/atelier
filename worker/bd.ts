@@ -22,6 +22,7 @@ export type DepotBrut = {
   branche: string; pousse_le: string; projet_id: number | null; masque: number; disparu: number;
   fiche_json: string | null; fiche_etat: "absente" | "ok" | "a_verifier"; fiche_lue_pour: string | null; commits_json: string;
   resume_ia_json?: string | null; resume_ia_pour?: string | null;
+  ci_etat?: "succes" | "echec" | "en_cours" | null; ci_nom?: string | null; ci_quand?: string | null; ci_url?: string | null;
 };
 
 export async function lireProjets(db: D1Database): Promise<ProjetBrut[]> {

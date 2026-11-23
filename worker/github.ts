@@ -59,3 +59,24 @@ export async function derniersCommits(cle: string, nomComplet: string, branche: 
   const lot = (await r.json()) as { commit: { message: string; author?: { date?: string } } }[];
   return lot.slice(0, 5).map((c) => ({ date: c.commit.author?.date ?? "", message: c.commit.message.split("\n")[0] }));
 }
+
+export type Execution = { etat: "succes" | "echec" | "en_cours"; nom: string; quand: string; url: string };
+
+/** Dernière exécution GitHub Actions sur la branche. null si aucune, ou si la clé n'a pas la permission Actions (jamais une erreur de clé). */
+export async function derniereExecution(cle: string, nomComplet: string, branche: string, f: typeof fetch = fetch): Promise<Execution | null> {
+  let r: Response;
+  try {
+    r = await f(`${API}/repos/${nomComplet}/actions/runs?per_page=1&branch=${encodeURIComponent(branche)}`, {
+      headers: { Authorization: `Bearer ${cle}`, Accept: "application/vnd.github+json", "User-Agent": "atelier", "X-GitHub-Api-Version": "2022-11-28" },
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch {
+    return null;
+  }
+  if (!r.ok) return null;
+  const corps = (await r.json()) as { workflow_runs?: { name: string; status: string; conclusion: string | null; updated_at: string; html_url: string }[] };
+  const x = corps.workflow_runs?.[0];
+  if (!x) return null;
+  const etat = x.status !== "completed" ? "en_cours" : x.conclusion === "success" || x.conclusion === "skipped" ? "succes" : "echec";
+  return { etat, nom: x.name, quand: x.updated_at, url: x.html_url };
+}

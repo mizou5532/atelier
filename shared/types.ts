@@ -33,6 +33,7 @@ export type CarteVue = {
   estimeParIA: boolean;
   jalonsResume: string | null;
   jalonsAValider: boolean;
+  voyant: { etat: "succes" | "echec" | "en_cours"; nom: string; relatif: string; url: string } | null;
   liensRapides: Lien[];
   nbDepots: number;
 };

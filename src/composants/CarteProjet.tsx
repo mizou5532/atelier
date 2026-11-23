@@ -32,6 +32,7 @@ export function CarteProjet({ carte }: { carte: CarteVue }) {
         </div>
         {carte.enTravail && <span className="badge" style={{ background: c.doux, color: c.texte }}>en travail</span>}
       </div>
+      {carte.voyant && <Voyant v={carte.voyant} />}
       <Barre valeur={carte.avancement} nom={carte.couleur} />
       {carte.jalonsResume && <p className="discret mini-note">{carte.jalonsResume}</p>}
       {carte.jalonsAValider && <LienInterne vers={`/projet/${carte.id}`} className="carte-note">Jalons proposés : à valider ›</LienInterne>}
@@ -48,5 +49,21 @@ export function CarteProjet({ carte }: { carte: CarteVue }) {
         </div>
       )}
     </article>
+  );
+}
+
+const VOYANTS = {
+  succes: { texte: "Mise en ligne réussie", couleur: "#16A34A" },
+  echec: { texte: "Mise en ligne échouée", couleur: "#DC2626" },
+  en_cours: { texte: "Mise en ligne en cours", couleur: "#F59E0B" },
+};
+
+function Voyant({ v }: { v: NonNullable<CarteVue["voyant"]> }) {
+  const s = VOYANTS[v.etat];
+  return (
+    <a className="voyant" href={v.url} target="_blank" rel="noreferrer">
+      <span className="voyant-point" aria-hidden="true" style={{ background: s.couleur }} />
+      {s.texte} · {v.relatif}
+    </a>
   );
 }

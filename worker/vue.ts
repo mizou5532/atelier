@@ -41,7 +41,8 @@ export function construireCarte(p: ProjetBrut, depots: DepotBrut[], liens: { nom
     avancement: p.avancement ?? ficheReelle?.avancement ?? pctJalons ?? resume?.avancement ?? null,
     proposition: { ...(propStatut ? { statut: propStatut } : {}), ...(propAvancement !== null ? { avancement: propAvancement } : {}) },
     derniereEtape: fiche?.derniereEtape, prochaineEtape: fiche?.prochaineEtape,
-    enTravail: Boolean(fiche?.enCours), ficheAVerifier: principal?.fiche_etat === "a_verifier", estimeParIA: Boolean(resume) && pctJalons === undefined, jalonsAValider: p.jalons_etat === "propose", jalonsResume: jalonsValides ? `${faits} sur ${jalons.length} jalons` : null,
+    enTravail: Boolean(fiche?.enCours), ficheAVerifier: principal?.fiche_etat === "a_verifier", estimeParIA: Boolean(resume) && pctJalons === undefined, jalonsAValider: p.jalons_etat === "propose",
+    voyant: (() => { const v = [...depots].filter((d) => d.ci_etat && d.ci_quand).sort((a, b) => b.ci_quand!.localeCompare(a.ci_quand!))[0]; return v ? { etat: v.ci_etat!, nom: v.ci_nom ?? "", relatif: relatif(v.ci_quand!, maintenant), url: v.ci_url ?? v.url } : null; })(), jalonsResume: jalonsValides ? `${faits} sur ${jalons.length} jalons` : null,
     liensRapides: rapides.slice(0, 2), nbDepots: depots.length,
     _fiche: fiche, _principal: principal,
   };
