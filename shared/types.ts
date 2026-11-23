@@ -31,6 +31,7 @@ export type CarteVue = {
   enTravail: boolean;
   ficheAVerifier: boolean;
   estimeParIA: boolean;
+  jalonsResume: string | null;
   liensRapides: Lien[];
   nbDepots: number;
 };
@@ -45,6 +46,8 @@ export type DetailVue = CarteVue & {
   liens: (Lien & { id: number; source: "main" | "github" | "fiche" })[];
   depots: { githubId: number; nom: string; url: string; prive: boolean; principal: boolean; disparu: boolean; ficheEtat: string }[];
   commits: { date: string; message: string }[];
+  jalonsEtat: "aucun" | "propose" | "valide";
+  jalons: { id: number; titre: string; fait: boolean; cochePar: "ia" | "main" | null }[];
 };
 
 export type QuotaVue = {

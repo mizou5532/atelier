@@ -5,6 +5,7 @@ import { routesProjets } from "./routes/projets";
 import { routesDepots } from "./routes/depots";
 import { routesReglages } from "./routes/reglages";
 import { routesQuotas } from "./routes/quotas";
+import { routesJalons } from "./routes/jalons";
 import { certificatsAccess, verifierJetonAcces, type ChercherCertificats } from "./acces";
 
 export type Dependances = { certificats: ChercherCertificats };
@@ -44,6 +45,7 @@ export function creerApp(deps: Dependances = { certificats: certificatsAccess })
   app.route("/api", routesDepots);
   app.route("/api", routesReglages);
   app.route("/api", routesQuotas);
+  app.route("/api", routesJalons);
 
   return app;
 }

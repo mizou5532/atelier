@@ -26,5 +26,10 @@ export const api = {
   reglages: () => appel<{ seuilEndormiJours: number; masques: { projets: { id: number; nom: string }[]; depots: { githubId: number; nom: string }[] } }>("/reglages"),
   modifierReglages: (corps: Record<string, unknown>) => appel("/reglages", { method: "PATCH", corps }),
   saisirQuota: (corps: { compteId: number; fenetre: string; reste: number | "bloque"; revientDansHeures: number }) => appel("/quotas/main", { method: "POST", corps }),
+  validerJalons: (id: number) => appel(`/projets/${id}/jalons/valider`, { method: "POST" }),
+  regenererJalons: (id: number) => appel(`/projets/${id}/jalons/regenerer`, { method: "POST" }),
+  ajouterJalon: (id: number, titre: string) => appel(`/projets/${id}/jalons`, { method: "POST", corps: { titre } }),
+  modifierJalon: (jalonId: number, corps: { titre?: string; fait?: boolean }) => appel(`/jalons/${jalonId}`, { method: "PATCH", corps }),
+  retirerJalon: (jalonId: number) => appel(`/jalons/${jalonId}`, { method: "DELETE" }),
   associerCourriel: (courriel: string, compteId: number) => appel("/quotas/courriels", { method: "POST", corps: { courriel, compteId } }),
 };

@@ -2,7 +2,7 @@ import type { DepotBrut, Env } from "./bd";
 import { lireFiche } from "../shared/fiche";
 import type { Fiche } from "../shared/types";
 import { derniersCommits, ErreurGithub, lireEtatMd, lireFichier, listerDepots, type DepotGithub } from "./github";
-import { resumerDepot } from "./agent";
+import { cocherJalons, proposerJalons, resumerDepot } from "./agent";
 
 export async function synchroniser(env: Env, maintenant: Date, f: typeof fetch = fetch): Promise<{ nouveaux: number; erreur?: "injoignable" | "cle_refusee" | "interne" }> {
   const db = env.DB;
@@ -18,7 +18,10 @@ export async function synchroniser(env: Env, maintenant: Date, f: typeof fetch =
 
   try {
     const r = await appliquer(db, env.GITHUB_CLE, liste, quand, f);
-    if (!r.erreur && env.GEMINI_CLE) await resumerSansFiche(db, env, f);
+    if (!r.erreur && env.GEMINI_CLE) {
+      await resumerSansFiche(db, env, f);
+      await suivreJalons(db, env, f);
+    }
     return r;
   } catch (e) {
     console.error("Synchronisation : erreur interne", e);
@@ -133,6 +136,50 @@ async function resumerSansFiche(db: D1Database, env: Env, f: typeof fetch): Prom
         .bind(resume ? JSON.stringify(resume) : null, d.pousse_le, d.github_id).run();
     } catch (e) {
       console.error("Agent : résumé impossible pour", d.nom_complet, e);
+    }
+  }
+}
+
+const JALONS_PAR_PASSAGE = 3;
+
+/** L'agent propose des jalons (une fois) puis coche ceux qui sont faits, pour les projets sans pourcentage dans leur fiche. */
+async function suivreJalons(db: D1Database, env: Env, f: typeof fetch): Promise<void> {
+  const projets = (await db.prepare(
+    `SELECT p.id, p.jalons_etat, p.jalons_vus_pour, d.nom_complet, d.branche, d.pousse_le, d.fiche_json, d.commits_json
+     FROM projets p JOIN depots d ON d.github_id = (
+       SELECT github_id FROM depots WHERE projet_id = p.id AND masque = 0 AND disparu = 0 ORDER BY pousse_le DESC LIMIT 1)
+     WHERE p.masque = 0 AND COALESCE(p.statut, 'en_cours') IN ('en_cours', 'en_pause') AND p.jalons_etat != 'propose'
+       AND (p.jalons_vus_pour IS NULL OR p.jalons_vus_pour != d.pousse_le)
+     ORDER BY d.pousse_le DESC`,
+  ).all<{ id: number; jalons_etat: string; jalons_vus_pour: string | null; nom_complet: string; branche: string; pousse_le: string; fiche_json: string | null; commits_json: string }>()).results
+    .filter((p) => p.fiche_json === null || (JSON.parse(p.fiche_json) as Fiche).avancement === undefined)
+    .slice(0, JALONS_PAR_PASSAGE);
+  for (const p of projets) {
+    try {
+      const document = (await lireFichier(env.GITHUB_CLE, p.nom_complet, p.branche, "PASSATION.md", f))
+        ?? (await lireFichier(env.GITHUB_CLE, p.nom_complet, p.branche, "README.md", f));
+      const entree = { nom: p.nom_complet.split("/")[1], document, commits: JSON.parse(p.commits_json) };
+      const modele = env.GEMINI_MODELE || "gemini-3.5-flash-lite";
+      const ecritures: D1PreparedStatement[] = [];
+      if (p.jalons_etat === "aucun") {
+        const jalons = await proposerJalons(env.GEMINI_CLE!, modele, entree, f);
+        if (jalons) {
+          jalons.forEach((j, i) => ecritures.push(db.prepare("INSERT INTO jalons (projet_id, ordre, titre, fait, coche_par) VALUES (?, ?, ?, ?, ?)")
+            .bind(p.id, i + 1, j.titre, j.fait ? 1 : 0, j.fait ? "ia" : null)));
+          ecritures.push(db.prepare("UPDATE projets SET jalons_etat = 'propose' WHERE id = ?").bind(p.id));
+        }
+      } else {
+        const existants = (await db.prepare("SELECT id, titre, fait FROM jalons WHERE projet_id = ? ORDER BY ordre, id").bind(p.id).all<{ id: number; titre: string; fait: number }>()).results;
+        if (existants.some((j) => !j.fait)) {
+          const numerotes = existants.map((j, i) => ({ numero: i + 1, titre: j.titre, fait: !!j.fait, id: j.id }));
+          const faits = await cocherJalons(env.GEMINI_CLE!, modele, { ...entree, jalons: numerotes }, f);
+          for (const n of faits ?? []) ecritures.push(db.prepare("UPDATE jalons SET fait = 1, coche_par = 'ia' WHERE id = ? AND fait = 0").bind(numerotes[n - 1].id));
+        }
+      }
+      ecritures.push(db.prepare("UPDATE projets SET jalons_vus_pour = ? WHERE id = ?").bind(p.pousse_le, p.id));
+      await db.batch(ecritures);
+    } catch (e) {
+      console.error("Agent : jalons impossibles pour", p.nom_complet, e);
     }
   }
 }

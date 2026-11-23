@@ -61,3 +61,62 @@ export async function resumerDepot(cle: string, modele: string, entree: EntreeRe
     return null;
   }
 }
+
+export type EntreeJalons = { nom: string; document: string | null; commits: { date: string; message: string }[] };
+
+async function demander(cle: string, modele: string, systeme: string, texte: string, schema: object, f: typeof fetch): Promise<unknown | null> {
+  try {
+    const r = await f(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modele)}:generateContent`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-goog-api-key": cle },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: systeme }] },
+        contents: [{ role: "user", parts: [{ text: texte }] }],
+        generationConfig: { responseMimeType: "application/json", responseSchema: schema },
+      }),
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!r.ok) return null;
+    const corps = (await r.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+    const brut = corps.candidates?.[0]?.content?.parts?.[0]?.text;
+    return brut ? JSON.parse(brut) : null;
+  } catch {
+    return null;
+  }
+}
+
+const contexte = (e: EntreeJalons) => [
+  `Projet : ${e.nom}`,
+  e.document ? `Document du projet :\n${e.document.slice(0, LIMITE_TEXTE)}` : "Pas de document.",
+  `Derniers changements :\n${e.commits.map((c) => `- ${c.date.slice(0, 10)} ${c.message}`).join("\n") || "aucun"}`,
+].join("\n\n");
+
+const SYSTEME_JALONS = `Tu aides un propriétaire non développeur à suivre l'avancement de son projet personnel.
+Propose entre 4 et 8 grands jalons, dans l'ordre, qui mènent de zéro à une « version complète » du projet, d'après le document.
+Chaque titre fait moins de 8 mots, en français du Québec, compréhensible par quelqu'un qui ne code pas.
+Pour chaque jalon, « fait » vaut true seulement si le document montre clairement qu'il est terminé.`;
+
+export async function proposerJalons(cle: string, modele: string, entree: EntreeJalons, f: typeof fetch = fetch): Promise<{ titre: string; fait: boolean }[] | null> {
+  if (!entree.document && entree.commits.length === 0) return null;
+  const brut = await demander(cle, modele, SYSTEME_JALONS, contexte(entree), {
+    type: "OBJECT",
+    properties: { jalons: { type: "ARRAY", items: { type: "OBJECT", properties: { titre: { type: "STRING" }, fait: { type: "BOOLEAN" } }, required: ["titre", "fait"] } } },
+    required: ["jalons"],
+  }, f);
+  const v = z.object({ jalons: z.array(z.object({ titre: z.string().trim().min(1).max(120), fait: z.boolean() })).min(3).max(10) }).safeParse(brut);
+  return v.success ? v.data.jalons : null;
+}
+
+const SYSTEME_COCHER = `Voici les jalons d'un projet personnel, numérotés. D'après le document et les derniers changements,
+donne les numéros des jalons PAS ENCORE cochés qui sont maintenant clairement terminés. Si aucun, renvoie une liste vide. N'invente rien.`;
+
+export async function cocherJalons(cle: string, modele: string, entree: EntreeJalons & { jalons: { numero: number; titre: string; fait: boolean }[] }, f: typeof fetch = fetch): Promise<number[] | null> {
+  const liste = entree.jalons.map((j) => `${j.numero}. [${j.fait ? "x" : " "}] ${j.titre}`).join("\n");
+  const brut = await demander(cle, modele, SYSTEME_COCHER, `${contexte(entree)}\n\nJalons :\n${liste}`, {
+    type: "OBJECT", properties: { faits: { type: "ARRAY", items: { type: "INTEGER" } } }, required: ["faits"],
+  }, f);
+  const v = z.object({ faits: z.array(z.number().int()) }).safeParse(brut);
+  if (!v.success) return null;
+  const pasFaits = new Set(entree.jalons.filter((j) => !j.fait).map((j) => j.numero));
+  return [...new Set(v.data.faits)].filter((n) => pasFaits.has(n));
+}

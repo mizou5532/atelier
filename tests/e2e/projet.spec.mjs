@@ -43,7 +43,7 @@ test("liens : ajouter et retirer", async () => {
   await page.getByRole("button", { name: "+ Lien" }).click();
   await page.getByLabel("Nom du lien").fill("Vercel");
   await page.getByLabel("Adresse").fill("https://vercel.com");
-  await page.getByRole("button", { name: "Ajouter" }).click();
+  await page.getByRole("button", { name: "Ajouter", exact: true }).click();
   await page.getByRole("button", { name: "Retirer Supabase" }).click();
   await page.waitForTimeout(100);
   assert.ok(envois.some((e) => e.methode === "POST" && e.chemin === "/api/projets/1/liens" && e.corps.url === "https://vercel.com"));

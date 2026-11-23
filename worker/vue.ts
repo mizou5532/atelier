@@ -18,7 +18,9 @@ function depotPrincipal(p: ProjetBrut, depots: DepotBrut[]): DepotBrut | undefin
   return tri.find((d) => d.fiche_json) ?? tri[0];
 }
 
-export function construireCarte(p: ProjetBrut, depots: DepotBrut[], liens: { nom: string; url: string }[], maintenant: Date): CarteVue & { _fiche?: Fiche; _principal?: DepotBrut } {
+export type JalonBrut = { id: number; projet_id: number; titre: string; fait: number; coche_par: "ia" | "main" | null };
+
+export function construireCarte(p: ProjetBrut, depots: DepotBrut[], liens: { nom: string; url: string }[], maintenant: Date, jalons: JalonBrut[] = []): CarteVue & { _fiche?: Fiche; _principal?: DepotBrut } {
   const principal = depotPrincipal(p, depots);
   const ficheReelle: Fiche | undefined = principal?.fiche_json ? JSON.parse(principal.fiche_json) : undefined;
   const resume = !ficheReelle && principal?.resume_ia_json ? JSON.parse(principal.resume_ia_json) as { derniereEtape: string; prochaineEtape: string; avancement: number | null } : undefined;
@@ -26,35 +28,39 @@ export function construireCarte(p: ProjetBrut, depots: DepotBrut[], liens: { nom
   const choix = p.statut as Statut | null;
   const statut = statutEffectif(choix, fiche?.statut);
   const propStatut = proposition<Statut>(choix, fiche?.statut, p.statut_ignore as Statut | null);
-  const propAvancement = proposition<number>(p.avancement, fiche?.avancement, p.avancement_ignore);
+  const propAvancement = proposition<number>(p.avancement, ficheReelle?.avancement, p.avancement_ignore);
+  const jalonsValides = p.jalons_etat === "valide" && jalons.length > 0;
+  const faits = jalons.filter((j) => j.fait).length;
+  const pctJalons = jalonsValides ? Math.round((faits / jalons.length) * 100) : undefined;
   const derniere = derniereActivite(depots, p.modifie_le);
   const rapides = [...liens];
   if (principal) rapides.push({ nom: "GitHub", url: principal.url });
   return {
     id: p.id, nom: p.nom, couleur: p.couleur, initiales: initiales(p.nom), statut,
     derniere: { ...derniere, relatif: relatif(derniere.quand, maintenant) },
-    avancement: p.avancement ?? fiche?.avancement ?? null,
+    avancement: p.avancement ?? ficheReelle?.avancement ?? pctJalons ?? resume?.avancement ?? null,
     proposition: { ...(propStatut ? { statut: propStatut } : {}), ...(propAvancement !== null ? { avancement: propAvancement } : {}) },
     derniereEtape: fiche?.derniereEtape, prochaineEtape: fiche?.prochaineEtape,
-    enTravail: Boolean(fiche?.enCours), ficheAVerifier: principal?.fiche_etat === "a_verifier", estimeParIA: Boolean(resume),
+    enTravail: Boolean(fiche?.enCours), ficheAVerifier: principal?.fiche_etat === "a_verifier", estimeParIA: Boolean(resume) && pctJalons === undefined, jalonsResume: jalonsValides ? `${faits} sur ${jalons.length} jalons` : null,
     liensRapides: rapides.slice(0, 2), nbDepots: depots.length,
     _fiche: fiche, _principal: principal,
   };
 }
 
 async function donnees(db: D1Database) {
-  const [projets, depots, liens] = await Promise.all([
+  const [projets, depots, liens, jalons] = await Promise.all([
     db.prepare("SELECT * FROM projets").all<ProjetBrut>(),
     db.prepare("SELECT * FROM depots").all<DepotBrut>(),
     db.prepare("SELECT id, projet_id, nom, url, source FROM liens ORDER BY id").all<{ id: number; projet_id: number; nom: string; url: string; source: "main" | "github" | "fiche" }>(),
+    db.prepare("SELECT id, projet_id, titre, fait, coche_par FROM jalons ORDER BY ordre, id").all<JalonBrut>(),
   ]);
-  return { projets: projets.results, depots: depots.results, liens: liens.results };
+  return { projets: projets.results, depots: depots.results, liens: liens.results, jalons: jalons.results };
 }
 
 const sansPrive = ({ _fiche, _principal, ...c }: CarteVue & { _fiche?: unknown; _principal?: unknown }): CarteVue => c;
 
 export async function construireAccueil(db: D1Database, maintenant: Date): Promise<Omit<AccueilVue, "quotas">> {
-  const { projets, depots, liens } = await donnees(db);
+  const { projets, depots, liens, jalons } = await donnees(db);
   const seuil = Number((await lireReglage(db, "seuil_endormi_jours")) ?? "30");
   const etat = await db.prepare("SELECT * FROM etat_synchro WHERE id = 1").first<{ derniere_reussite: string | null; erreur: "injoignable" | "cle_refusee" | "interne" | null; erreur_depuis: string | null }>();
   const vue: Omit<AccueilVue, "quotas"> = {
@@ -65,7 +71,7 @@ export async function construireAccueil(db: D1Database, maintenant: Date): Promi
     enCours: [], endormis: [], idees: [], archives: [],
   };
   for (const p of projets.filter((p) => !p.masque)) {
-    const carte = sansPrive(construireCarte(p, depots.filter((d) => d.projet_id === p.id && !d.masque), liens.filter((l) => l.projet_id === p.id), maintenant));
+    const carte = sansPrive(construireCarte(p, depots.filter((d) => d.projet_id === p.id && !d.masque), liens.filter((l) => l.projet_id === p.id), maintenant, jalons.filter((j) => j.projet_id === p.id)));
     if (carte.statut === "idee") vue.idees.push(carte);
     else if (["termine", "abandonne", "remplace"].includes(carte.statut)) vue.archives.push(carte);
     else if (carte.statut === "en_pause" || estEndormi(carte.statut, carte.derniere.quand, maintenant, seuil)) vue.endormis.push(carte);
@@ -77,12 +83,13 @@ export async function construireAccueil(db: D1Database, maintenant: Date): Promi
 }
 
 export async function construireDetail(db: D1Database, id: number, maintenant: Date): Promise<DetailVue | null> {
-  const { projets, depots, liens } = await donnees(db);
+  const { projets, depots, liens, jalons } = await donnees(db);
   const p = projets.find((x) => x.id === id);
   if (!p) return null;
   const siens = depots.filter((d) => d.projet_id === id && !d.masque);
   const leurs = liens.filter((l) => l.projet_id === id);
-  const { _fiche, _principal, ...carte } = construireCarte(p, siens, leurs, maintenant);
+  const siensJalons = jalons.filter((j) => j.projet_id === id);
+  const { _fiche, _principal, ...carte } = construireCarte(p, siens, leurs, maintenant, siensJalons);
   return {
     ...carte,
     notes: p.notes, enCours: _fiche?.enCours ?? "", statutChoisi: p.statut as Statut | null, remplacePar: p.remplace_par,
@@ -92,5 +99,7 @@ export async function construireDetail(db: D1Database, id: number, maintenant: D
       principal: d.github_id === _principal?.github_id, disparu: !!d.disparu, ficheEtat: d.fiche_etat,
     })),
     commits: _principal ? JSON.parse(_principal.commits_json) : [],
+    jalonsEtat: p.jalons_etat ?? "aucun",
+    jalons: siensJalons.map((j) => ({ id: j.id, titre: j.titre, fait: !!j.fait, cochePar: j.coche_par })),
   };
 }

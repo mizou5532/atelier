@@ -33,6 +33,7 @@ export function CarteProjet({ carte }: { carte: CarteVue }) {
         {carte.enTravail && <span className="badge" style={{ background: c.doux, color: c.texte }}>en travail</span>}
       </div>
       <Barre valeur={carte.avancement} nom={carte.couleur} />
+      {carte.jalonsResume && <p className="discret mini-note">{carte.jalonsResume}</p>}
       {etape && <p className="carte-etape">{etape}</p>}
       {carte.estimeParIA && <p className="discret mini-note">estimé par l'IA</p>}
       {(carte.ficheAVerifier || carte.proposition.avancement !== undefined || carte.proposition.statut) && (

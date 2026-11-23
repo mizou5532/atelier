@@ -40,9 +40,12 @@ describe("agent dans la synchronisation", () => {
 
   function faux(depots: any[], fichiers: Record<string, string>) {
     const appelsIA: string[] = [];
-    const f = (async (entree: RequestInfo | URL) => {
+    const f = (async (entree: RequestInfo | URL, init?: RequestInit) => {
       const url = String(entree);
-      if (url.includes("generativelanguage")) { appelsIA.push(url); return reponseGemini(BON); }
+      if (url.includes("generativelanguage")) {
+        if (String(init?.body).includes("Tu résumes")) appelsIA.push(url); // on ne compte que les résumés (pas les jalons)
+        return reponseGemini(BON);
+      }
       if (url.includes("/user/repos")) return Response.json(url.includes("page=1") ? depots : []);
       if (url.includes("/commits")) return Response.json([]);
       const m = url.match(/repos\/mizou5532\/([^/]+)\/contents\/([^?]+)/);

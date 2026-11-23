@@ -14,6 +14,7 @@ export type ProjetBrut = {
   id: number; nom: string; couleur: string; statut: string | null; remplace_par: number | null;
   avancement: number | null; statut_ignore: string | null; avancement_ignore: number | null;
   notes: string; depot_principal: number | null; masque: number; modifie_le: string; cree_le: string;
+  jalons_etat?: "aucun" | "propose" | "valide"; jalons_vus_pour?: string | null;
 };
 
 export type DepotBrut = {

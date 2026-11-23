@@ -81,6 +81,8 @@ export function Projet({ id }: { id?: number }) {
         </section>
       </div>
 
+      <Jalons d={d} agir={agir} />
+
       <section className="carte encours" style={{ borderColor: c.doux }}>
         <h2 style={{ color: c.texte }}>En cours de travail</h2>
         {d.enCours ? <pre className="encours-texte">{d.enCours}</pre> : <p className="discret">Rien en cours : la dernière étape est terminée.</p>}
@@ -145,5 +147,38 @@ export function Projet({ id }: { id?: number }) {
         {d.depots.length === 0 && <button onClick={() => { if (confirm(`Supprimer « ${d.nom} » d'Atelier? (Rien n'est touché sur GitHub.)`)) agir(async () => { await api.supprimerProjet(d.id); naviguer("/"); }); }}>Supprimer</button>}
       </div>
     </main>
+  );
+}
+
+function Jalons({ d: brut, agir }: { d: DetailVue; agir: (a: () => Promise<unknown>) => Promise<void> }) {
+  const d = { ...brut, jalons: brut.jalons ?? [], jalonsEtat: brut.jalonsEtat ?? "aucun" };
+  const [nouveau, setNouveau] = useState("");
+  const ajout = (
+    <form className="reglage-ligne" onSubmit={(e) => { e.preventDefault(); if (nouveau.trim()) agir(async () => { await api.ajouterJalon(d.id, nouveau.trim()); setNouveau(""); }); }}>
+      <label>Nouveau jalon<input value={nouveau} onChange={(e) => setNouveau(e.target.value)} maxLength={120} /></label>
+      <div className="choix"><button type="submit">Ajouter le jalon</button></div>
+    </form>
+  );
+  return (
+    <section className="carte">
+      <h2>Jalons {d.jalonsResume ? `· ${d.jalonsResume}` : ""}</h2>
+      {d.jalonsEtat === "aucun" && d.jalons.length === 0 && <p className="discret">L'agent proposera des jalons à la prochaine activité du projet. Tu peux aussi en ajouter toi-même.</p>}
+      {d.jalonsEtat === "propose" && <p className="discret">L'agent propose ces étapes jusqu'à une version complète. Corrige-les au besoin, puis valide.</p>}
+      <ul className="jalons">
+        {d.jalons.map((j) => (
+          <li key={j.id}>
+            <label className="jalon">
+              <input type="checkbox" checked={j.fait} aria-label={j.titre} onChange={(e) => agir(() => api.modifierJalon(j.id, { fait: e.target.checked }))} />
+              <span className={j.fait ? "jalon-fait" : ""}>{j.titre}</span>
+            </label>
+            {j.cochePar === "ia" && <span className="discret">coché par l'IA</span>}
+            <button className="mini" aria-label={`Retirer ${j.titre}`} onClick={() => agir(() => api.retirerJalon(j.id))}>×</button>
+          </li>
+        ))}
+      </ul>
+      {d.jalonsEtat === "propose" && <div className="choix"><button className="bouton-fort" onClick={() => agir(() => api.validerJalons(d.id))}>Valider ces jalons</button></div>}
+      {ajout}
+      {d.jalons.length > 0 && <div className="choix"><button onClick={() => { if (confirm("Effacer ces jalons et en demander de nouveaux à l'agent?")) agir(() => api.regenererJalons(d.id)); }}>Refaire la proposition</button></div>}
+    </section>
   );
 }
