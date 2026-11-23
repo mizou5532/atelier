@@ -1,9 +1,10 @@
 import type { DepotBrut, Env } from "./bd";
 import { lireFiche } from "../shared/fiche";
 import type { Fiche } from "../shared/types";
-import { activiteAnnuelle, commitsDepuis, derniereExecution, derniersCommits, ErreurGithub, lireEtatMd, lireFichier, listerDepots, type DepotGithub } from "./github";
+import { activiteAnnuelle, commitsDepuis, derniereExecution, derniersCommits, listerCommits, ErreurGithub, lireEtatMd, lireFichier, listerDepots, type DepotGithub } from "./github";
 import { cocherJalons, proposerJalons, resumerDepot } from "./agent";
 import { joursDepuisStats } from "../shared/activite";
+import { detecterIA } from "../shared/historique";
 import { construireAccueil } from "./vue";
 
 export async function synchroniser(env: Env, maintenant: Date, f: typeof fetch = fetch): Promise<{ nouveaux: number; erreur?: "injoignable" | "cle_refusee" | "interne" }> {
@@ -26,6 +27,7 @@ export async function synchroniser(env: Env, maintenant: Date, f: typeof fetch =
     };
     await etape("voyants", () => lireVoyants(db, env.GITHUB_CLE, f));
     await etape("activité", () => lireActivite(db, env.GITHUB_CLE, maintenant, f));
+    await etape("historique complet", () => importerHistorique(db, env.GITHUB_CLE, f));
     if (env.GEMINI_CLE) {
       await etape("résumés", () => resumerSansFiche(db, env, f));
       await etape("jalons", () => suivreJalons(db, env, f));
@@ -139,7 +141,7 @@ async function resumerSansFiche(db: D1Database, env: Env, f: typeof fetch): Prom
       const passation = await lireFichier(env.GITHUB_CLE, d.nom_complet, d.branche, "PASSATION.md", f);
       const readme = passation ? null : await lireFichier(env.GITHUB_CLE, d.nom_complet, d.branche, "README.md", f);
       const resume = await resumerDepot(env.GEMINI_CLE!, env.GEMINI_MODELE || "gemini-3.5-flash-lite", {
-        nom: d.nom_complet.split("/")[1], passation, readme, commits: JSON.parse(d.commits_json),
+        nom: d.nom_complet.split("/")[1], passation, readme, commits: await historiquePourAgent(db, d.github_id, d.commits_json),
       }, f);
       await db.prepare("UPDATE depots SET resume_ia_json = COALESCE(?, resume_ia_json), resume_ia_pour = ? WHERE github_id = ?")
         .bind(resume ? JSON.stringify(resume) : null, d.pousse_le, d.github_id).run();
@@ -154,20 +156,20 @@ const JALONS_PAR_PASSAGE = 3;
 /** L'agent propose des jalons (une fois) puis coche ceux qui sont faits, pour les projets sans pourcentage dans leur fiche. */
 async function suivreJalons(db: D1Database, env: Env, f: typeof fetch): Promise<void> {
   const projets = (await db.prepare(
-    `SELECT p.id, p.jalons_etat, p.jalons_vus_pour, d.nom_complet, d.branche, d.pousse_le, d.fiche_json, d.commits_json
+    `SELECT p.id, p.jalons_etat, p.jalons_vus_pour, d.github_id, d.nom_complet, d.branche, d.pousse_le, d.fiche_json, d.commits_json
      FROM projets p JOIN depots d ON d.github_id = (
        SELECT github_id FROM depots WHERE projet_id = p.id AND masque = 0 AND disparu = 0 ORDER BY pousse_le DESC LIMIT 1)
      WHERE p.masque = 0 AND COALESCE(p.statut, 'en_cours') IN ('en_cours', 'en_pause') AND p.jalons_etat != 'propose'
        AND (p.jalons_vus_pour IS NULL OR p.jalons_vus_pour != d.pousse_le)
      ORDER BY d.pousse_le DESC`,
-  ).all<{ id: number; jalons_etat: string; jalons_vus_pour: string | null; nom_complet: string; branche: string; pousse_le: string; fiche_json: string | null; commits_json: string }>()).results
+  ).all<{ id: number; jalons_etat: string; jalons_vus_pour: string | null; github_id: number; nom_complet: string; branche: string; pousse_le: string; fiche_json: string | null; commits_json: string }>()).results
     .filter((p) => p.fiche_json === null || (JSON.parse(p.fiche_json) as Fiche).avancement === undefined)
     .slice(0, JALONS_PAR_PASSAGE);
   for (const p of projets) {
     try {
       const document = (await lireFichier(env.GITHUB_CLE, p.nom_complet, p.branche, "PASSATION.md", f))
         ?? (await lireFichier(env.GITHUB_CLE, p.nom_complet, p.branche, "README.md", f));
-      const entree = { nom: p.nom_complet.split("/")[1], document, commits: JSON.parse(p.commits_json) };
+      const entree = { nom: p.nom_complet.split("/")[1], document, commits: await historiquePourAgent(db, p.github_id, p.commits_json) };
       const modele = env.GEMINI_MODELE || "gemini-3.5-flash-lite";
       const ecritures: D1PreparedStatement[] = [];
       if (p.jalons_etat === "aucun") {
@@ -232,4 +234,49 @@ async function noterHistorique(db: D1Database, maintenant: Date): Promise<void> 
   const vue = await construireAccueil(db, maintenant);
   const cartes = [...vue.enCours, ...vue.endormis, ...vue.archives].filter((c) => c.avancement !== null);
   if (cartes.length) await db.batch(cartes.map((c) => db.prepare("INSERT OR REPLACE INTO historique (projet_id, jour, avancement) VALUES (?, ?, ?)").bind(c.id, jour, c.avancement)));
+}
+
+const PAGES_PAR_PASSAGE = 30;
+
+/** Importe tout l'historique des commits, par morceaux : d'abord les nouveaux, puis on remonte jusqu'au premier. */
+async function importerHistorique(db: D1Database, cle: string, f: typeof fetch): Promise<void> {
+  const depots = (await db.prepare(
+    `SELECT d.github_id, d.nom_complet, d.branche, d.import_complet,
+       (SELECT MAX(quand) FROM commits c WHERE c.depot_id = d.github_id) AS plus_recent,
+       (SELECT MIN(quand) FROM commits c WHERE c.depot_id = d.github_id) AS plus_ancien
+     FROM depots d WHERE d.projet_id IS NOT NULL AND d.masque = 0 AND d.disparu = 0 ORDER BY d.pousse_le DESC`,
+  ).all<{ github_id: number; nom_complet: string; branche: string; import_complet: number; plus_recent: string | null; plus_ancien: string | null }>()).results;
+  let budget = PAGES_PAR_PASSAGE;
+  const ranger = async (depot: number, lot: { sha: string; quand: string; message: string; courriel: string }[]) => {
+    if (lot.length) await db.batch(lot.map((c) => db.prepare("INSERT OR IGNORE INTO commits (sha, depot_id, quand, message, ia) VALUES (?, ?, ?, ?, ?)")
+      .bind(c.sha, depot, c.quand, c.message.slice(0, 2000), detecterIA(c.message, c.courriel))));
+  };
+  for (const d of depots) {
+    if (budget <= 0) break;
+    // 1. Les nouveaux (ou la toute première page)
+    for (let page = 1; budget > 0; page++) {
+      budget--;
+      const lot = await listerCommits(cle, d.nom_complet, d.branche, { depuis: d.plus_recent ?? undefined, page }, f);
+      if (lot === null) break;
+      await ranger(d.github_id, lot);
+      if (!d.plus_ancien && lot.length) d.plus_ancien = lot[lot.length - 1].quand;
+      if (!d.plus_recent && lot.length === 0) { await db.prepare("UPDATE depots SET import_complet = 1 WHERE github_id = ?").bind(d.github_id).run(); d.import_complet = 1; }
+      if (lot.length < 100 || !d.plus_recent) break; // première page : on remonte ensuite avec « jusqu'à »
+    }
+    // 2. On remonte dans le passé jusqu'au premier commit
+    while (!d.import_complet && d.plus_ancien && budget > 0) {
+      budget--;
+      const lot = await listerCommits(cle, d.nom_complet, d.branche, { jusqua: new Date(new Date(d.plus_ancien).getTime() - 1000).toISOString() }, f);
+      if (lot === null) break;
+      await ranger(d.github_id, lot);
+      if (lot.length < 100) { await db.prepare("UPDATE depots SET import_complet = 1 WHERE github_id = ?").bind(d.github_id).run(); d.import_complet = 1; break; }
+      d.plus_ancien = lot[lot.length - 1].quand;
+    }
+  }
+}
+
+/** Les 150 derniers changements connus du dépôt (historique complet), sinon les 5 derniers lus. */
+async function historiquePourAgent(db: D1Database, depotId: number, secours: string): Promise<{ date: string; message: string }[]> {
+  const lignes = (await db.prepare("SELECT quand, message FROM commits WHERE depot_id = ? ORDER BY quand DESC LIMIT 150").bind(depotId).all<{ quand: string; message: string }>()).results;
+  return lignes.length ? lignes.map((l) => ({ date: l.quand, message: l.message.split("\n")[0] })) : JSON.parse(secours);
 }

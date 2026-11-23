@@ -47,7 +47,7 @@ export function accueilExemple() {
 }
 
 /** Ouvre une page dont l'API est simulée; renvoie la page et la liste des requêtes envoyées. */
-export async function ouvrir(navigateur, url, { largeur = 1440, hauteur = 900, accueil = accueilExemple(), reponses = {} } = {}) {
+export async function ouvrir(navigateur, url, { largeur = 1440, hauteur = 900, accueil = accueilExemple(), reponses = {}, prefs = null } = {}) {
   const contexte = await navigateur.newContext({ viewport: { width: largeur, height: hauteur }, permissions: ["clipboard-read", "clipboard-write"] });
   const page = await contexte.newPage();
   const envois = [];
@@ -57,7 +57,8 @@ export async function ouvrir(navigateur, url, { largeur = 1440, hauteur = 900, a
     envois.push({ methode: req.method(), chemin, corps: req.postData() ? JSON.parse(req.postData()) : undefined });
     const cle = `${req.method()} ${chemin}`;
     if (cle in reponses) return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(typeof reponses[cle] === "function" ? reponses[cle]() : reponses[cle]) });
-    if (cle === "GET /api/activite") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ depuis: "2026-05-25", jours: [{ jour: "2026-11-21", total: 3, projets: [{ id: 3, nom: "Pistes", couleur: "vert", n: 3 }] }] }) });
+    if (cle === "GET /api/activite") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ depuis: "2025-11-23", jours: [{ jour: "2026-11-21", total: 3, minutes: 95, ia: { claude: 2, antigravity: 1 }, projets: [{ id: 3, nom: "Pistes", couleur: "vert", icone: "💼", n: 3, minutes: 95 }] }] }) });
+    if (cle === "GET /api/preferences" && !(cle in reponses)) return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(prefs ?? {}) });
     if (cle === "GET /api/accueil") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(accueil) });
     return route.fulfill({ status: req.method() === "POST" && chemin === "/api/projets" ? 201 : 204, contentType: "application/json", body: req.method() === "POST" && chemin === "/api/projets" ? '{"id":42}' : "" });
   });

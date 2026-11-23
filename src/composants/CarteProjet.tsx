@@ -1,6 +1,7 @@
 import type { CarteVue } from "../../shared/types";
 import { couleur } from "./couleurs";
 import { LienInterne } from "./Lien";
+import { usePreferences } from "../preferences";
 
 export function Pastille({ carte, taille = 44 }: { carte: Pick<CarteVue, "couleur" | "initiales"> & { icone?: string | null }; taille?: number }) {
   const c = couleur(carte.couleur);
@@ -41,6 +42,7 @@ export function Barre({ valeur, nom }: { valeur: number | null; nom: string }) {
 }
 
 export function CarteProjet({ carte }: { carte: CarteVue }) {
+  const vis = usePreferences().carte;
   const c = couleur(carte.couleur);
   const etape = carte.prochaineEtape ? `Prochaine : ${carte.prochaineEtape}` : carte.derniereEtape ? `Dernière : ${carte.derniereEtape}` : null;
   return (
@@ -53,27 +55,27 @@ export function CarteProjet({ carte }: { carte: CarteVue }) {
         </div>
         {carte.enTravail && <span className="badge" style={{ background: c.doux, color: c.texte }}>en travail</span>}
       </div>
-      {carte.voyant && <Voyant v={carte.voyant} />}
+      {vis.voyant && carte.voyant && <Voyant v={carte.voyant} />}
       <Barre valeur={carte.avancement} nom={carte.couleur} />
-      {carte.jalonsResume && <p className="discret mini-note">{carte.jalonsResume}</p>}
-      {(carte.historique?.length > 1 || carte.deltaSemaine || carte.heuresSemaine > 0) && (
+      {vis.jalons && carte.jalonsResume && <p className="discret mini-note">{carte.jalonsResume}</p>}
+      {(vis.courbe || vis.heures) && (carte.historique?.length > 1 || carte.deltaSemaine || carte.heuresSemaine > 0) && (
         <div className="carte-suivi">
-          <Courbe points={carte.historique ?? []} nom={carte.nom} couleurNom={carte.couleur} />
+          {vis.courbe && <Courbe points={carte.historique ?? []} nom={carte.nom} couleurNom={carte.couleur} />}
           <div className="carte-suivi-textes">
             {carte.deltaSemaine ? <span className={carte.deltaSemaine > 0 ? "hausse" : "baisse"}>{carte.deltaSemaine > 0 ? "+" : ""}{carte.deltaSemaine} % cette semaine</span> : null}
-            {texteHeures(carte.heuresSemaine) && <span className="discret">{texteHeures(carte.heuresSemaine)}</span>}
+            {vis.heures && texteHeures(carte.heuresSemaine) && <span className="discret">{texteHeures(carte.heuresSemaine)}</span>}
           </div>
         </div>
       )}
       {carte.jalonsAValider && <LienInterne vers={`/projet/${carte.id}`} className="carte-note">Jalons proposés : à valider ›</LienInterne>}
-      {etape && <p className="carte-etape">{etape}</p>}
+      {vis.etapes && etape && <p className="carte-etape">{etape}</p>}
       {carte.estimeParIA && <p className="discret mini-note">estimé par l'IA</p>}
       {(carte.ficheAVerifier || carte.proposition.avancement !== undefined || carte.proposition.statut) && (
         <p className="carte-note">
           {carte.ficheAVerifier ? "Fiche à vérifier" : "Ton IA propose une mise à jour"}
         </p>
       )}
-      {carte.liensRapides.length > 0 && (
+      {vis.liens && carte.liensRapides.length > 0 && (
         <div className="carte-liens">
           {carte.liensRapides.map((l) => <a key={l.url} href={l.url} target="_blank" rel="noreferrer">{l.nom}</a>)}
         </div>

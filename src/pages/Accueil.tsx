@@ -9,19 +9,21 @@ import { filtrerProjets, salutation } from "../../shared/activite";
 import { naviguer } from "../App";
 import { Calendrier } from "../composants/Calendrier";
 import { BasculeTheme } from "../composants/ChoixTheme";
+import { usePreferences } from "../preferences";
 
 const dateDuJour = () => {
   const t = new Intl.DateTimeFormat("fr-CA", { timeZone: "America/Montreal", weekday: "long", day: "numeric", month: "long" }).format(new Date());
   return t.charAt(0).toUpperCase() + t.slice(1);
 };
 
-function phrase(n: number): string {
-  const bonjour = salutation(new Date());
+function phrase(n: number, avecSalutation = true): string {
+  const bonjour = avecSalutation ? salutation(new Date()) : "Bon retour";
   if (n === 0) return `${bonjour}. Rien n'avance pour l'instant.`;
   return `${bonjour}. ${n} projet${n > 1 ? "s avancent" : " avance"}.`;
 }
 
 export function Accueil() {
+  const prefs = usePreferences();
   const [vue, setVue] = useState<AccueilVue | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
   const [ouvert, setOuvert] = useState<string | null>(null);
@@ -56,7 +58,7 @@ export function Accueil() {
       <header className="entete">
         <div>
           <p className="discret">{dateDuJour()}{vue.maj.derniereReussite ? ` · à jour ${relatif(vue.maj.derniereReussite, new Date())}` : ""}</p>
-          <h1>{phrase(vue.enCours.length)}</h1>
+          <h1>{phrase(vue.enCours.length, prefs.salutation)}</h1>
         </div>
         <nav className="entete-actions" aria-label="Actions">
           <button className="bouton-doux" onClick={() => setRecherche("")} aria-label="Chercher (Ctrl+K)">Chercher <kbd>Ctrl K</kbd></button>
@@ -84,17 +86,17 @@ export function Accueil() {
 
       {nouvelleIdee && <FormIdee fermer={() => setNouvelleIdee(false)} garder={(nom, notes) => agir(async () => { await api.creerProjet({ nom, statut: "idee", notes }); setNouvelleIdee(false); })} />}
 
-      {vue.quotas.length > 0 && <section className="bulles" aria-label="Quotas IA">{vue.quotas.map((q) => <BulleQuota key={q.compteId} quota={q} />)}</section>}
+      {prefs.sections.quotas && vue.quotas.length > 0 && <section className="bulles" aria-label="Quotas IA">{vue.quotas.map((q) => <BulleQuota key={q.compteId} quota={q} />)}</section>}
 
       <section aria-label="En cours" className="grille">
         {vue.enCours.map((c) => <CarteProjet key={c.id} carte={c} />)}
         {vue.enCours.length === 0 && <p className="discret">Aucun projet en cours.</p>}
       </section>
 
-      <Calendrier />
+      {prefs.sections.calendrier && <Calendrier />}
 
       <div className="bas">
-        <section>
+        {prefs.sections.endormis && <section>
           <h2>Endormis · toujours en cours?</h2>
           <div className="etiquettes">
             {vue.endormis.map((c) => (
@@ -104,18 +106,18 @@ export function Accueil() {
             ))}
             {vue.endormis.length === 0 && <span className="discret">Aucun. Bravo.</span>}
           </div>
-        </section>
+        </section>}
         <section>
           <h2>Idées en attente</h2>
           <div className="etiquettes">
-            {vue.idees.map((c) => <LienInterne key={c.id} vers={`/projet/${c.id}`} className="etiquette idee">{c.nom}</LienInterne>)}
-            {vue.aClasser.map((d) => (
+            {prefs.sections.idees && vue.idees.map((c) => <LienInterne key={c.id} vers={`/projet/${c.id}`} className="etiquette idee">{c.nom}</LienInterne>)}
+            {prefs.sections.aClasser && vue.aClasser.map((d) => (
               <Etiquette key={d.githubId} accent texte={`Dépôt à classer : ${d.nom}`} ouvert={ouvert === `d${d.githubId}`} basculer={() => setOuvert(ouvert === `d${d.githubId}` ? null : `d${d.githubId}`)}>
                 <Classement depot={d} projets={tous} agir={agir} />
               </Etiquette>
             ))}
           </div>
-          {vue.archives.length > 0 && (
+          {prefs.sections.archives && vue.archives.length > 0 && (
             <details className="archives"><summary>Archives ({vue.archives.length})</summary>
               <div className="etiquettes">{vue.archives.map((c) => <LienInterne key={c.id} vers={`/projet/${c.id}`} className="etiquette">{c.nom}</LienInterne>)}</div>
             </details>

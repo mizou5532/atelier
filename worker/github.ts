@@ -105,3 +105,21 @@ export async function commitsDepuis(cle: string, nomComplet: string, branche: st
     return [];
   }
 }
+
+export type CommitGithub = { sha: string; quand: string; message: string; courriel: string };
+
+/** Une page (100) de commits de la branche, entre deux dates facultatives. null si GitHub ne répond pas; [] si dépôt vide. */
+export async function listerCommits(cle: string, nomComplet: string, branche: string, o: { depuis?: string; jusqua?: string; page?: number }, f: typeof fetch = fetch): Promise<CommitGithub[] | null> {
+  const q = new URLSearchParams({ per_page: "100", sha: branche, page: String(o.page ?? 1) });
+  if (o.depuis) q.set("since", o.depuis);
+  if (o.jusqua) q.set("until", o.jusqua);
+  try {
+    const r = await appeler(cle, `/repos/${nomComplet}/commits?${q}`, f);
+    if (r.status === 409 || r.status === 404) return [];
+    if (r.status !== 200) return null;
+    const lot = (await r.json()) as { sha: string; commit: { message: string; author?: { date?: string; email?: string } } }[];
+    return lot.filter((c) => c.commit.author?.date).map((c) => ({ sha: c.sha, quand: c.commit.author!.date!, message: c.commit.message, courriel: c.commit.author?.email ?? "" }));
+  } catch {
+    return null;
+  }
+}

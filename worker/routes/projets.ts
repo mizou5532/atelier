@@ -2,7 +2,8 @@ import { Hono } from "hono";
 import { z } from "zod";
 import type { Contexte } from "../index";
 import { STATUTS } from "../../shared/types";
-import { construireAccueil, construireActivite, construireDetail } from "../vue";
+import { construireAccueil, construireActivite, construireDetail, construireJour } from "../vue";
+import { fusionnerPreferences, schemaPreferences } from "../../shared/historique";
 import { construireQuotas } from "./quotas";
 import { corps, invalide } from "./outils";
 
@@ -16,7 +17,31 @@ routesProjets.get("/accueil", async (c) => {
   return c.json({ ...(await construireAccueil(c.env.DB, maintenant)), quotas: await construireQuotas(c.env.DB, maintenant) });
 });
 
-routesProjets.get("/activite", async (c) => c.json(await construireActivite(c.env.DB, new Date())));
+routesProjets.get("/activite", async (c) => {
+  const mois = Number(c.req.query("mois") ?? "12");
+  return c.json(await construireActivite(c.env.DB, new Date(), [3, 6, 12, 24].includes(mois) ? mois : 12));
+});
+
+routesProjets.get("/jour/:jour", async (c) => {
+  const jour = c.req.param("jour");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(jour)) return invalide(c);
+  return c.json(await construireJour(c.env.DB, jour));
+});
+
+routesProjets.get("/preferences", async (c) => {
+  const r = await c.env.DB.prepare("SELECT valeur FROM reglages WHERE cle = 'preferences'").first<{ valeur: string }>();
+  return c.json(fusionnerPreferences(JSON.parse(r?.valeur ?? "{}")));
+});
+
+routesProjets.patch("/preferences", async (c) => {
+  const b = await corps(c, schemaPreferences);
+  if (!b) return invalide(c);
+  const r = await c.env.DB.prepare("SELECT valeur FROM reglages WHERE cle = 'preferences'").first<{ valeur: string }>();
+  const avant = JSON.parse(r?.valeur ?? "{}");
+  const apres = { ...avant, ...b, sections: { ...(avant.sections ?? {}), ...(b.sections ?? {}) }, carte: { ...(avant.carte ?? {}), ...(b.carte ?? {}) } };
+  await c.env.DB.prepare("INSERT INTO reglages (cle, valeur) VALUES ('preferences', ?) ON CONFLICT(cle) DO UPDATE SET valeur = excluded.valeur").bind(JSON.stringify(apres)).run();
+  return c.json(fusionnerPreferences(apres));
+});
 
 routesProjets.get("/semaine", async (c) => {
   const v = await construireAccueil(c.env.DB, new Date());

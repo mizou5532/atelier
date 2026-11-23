@@ -13,7 +13,7 @@ function faux(pousse = "2026-11-23T19:00:00Z") {
     const u = String(entree);
     if (u.includes("/user/repos")) return Response.json(u.includes("page=1") ? [{ id: 90, name: "pistes", full_name: "mizou5532/pistes", html_url: "https://github.com/mizou5532/pistes", homepage: null, private: true, archived: false, default_branch: "main", pushed_at: pousse }] : []);
     if (u.includes("/stats/commit_activity")) return stats === 202 ? new Response("", { status: 202 }) : Response.json([{ week: Date.UTC(2026, 10, 15) / 1000, days: [0, 2, 0, 0, 1, 0, 3] }]);
-    if (u.includes("/commits?") && u.includes("since=")) return Response.json([{ commit: { author: { date: "2026-11-22T10:00:00Z" }, message: "a" } }, { commit: { author: { date: "2026-11-22T11:00:00Z" }, message: "b" } }]);
+    if (u.includes("/commits?") && (u.includes("since=") || u.includes("per_page=100"))) return Response.json(u.includes("until=") ? [] : [{ sha: "c1", commit: { author: { date: "2026-11-22T10:00:00Z" }, message: "a" } }, { sha: "c2", commit: { author: { date: "2026-11-22T11:00:00Z" }, message: "b" } }]);
     if (u.includes("/commits")) return Response.json([]);
     if (u.includes("ETAT.md")) return new Response("---\nstatut: en cours\navancement: 60\n---\n");
     return new Response("absent", { status: 404 });
@@ -54,11 +54,12 @@ describe("suivi", () => {
     expect(typeof pistes.heuresSemaine).toBe("number");
   });
 
-  it("calendrier d'activité : jours avec leurs projets", async () => {
+  it("calendrier d'activité : jours avec leurs projets (depuis l'historique complet)", async () => {
+    await db.prepare("DELETE FROM commits").run();
     await synchroniser(e, new Date("2026-11-23T20:00:00Z"), faux());
     const a = (await (await api("/api/activite")).json()) as any;
-    const jour = a.jours.find((j: any) => j.jour === "2026-11-21");
-    expect(jour).toMatchObject({ total: 3, projets: [{ nom: "Pistes", n: 3 }] });
+    const jour = a.jours.find((j: any) => j.jour === "2026-11-22");
+    expect(jour).toMatchObject({ total: 2, projets: [{ nom: "Pistes", n: 2 }] });
   });
 
   it("résumé de la semaine", async () => {

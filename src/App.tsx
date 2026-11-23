@@ -4,6 +4,7 @@ import { Projet } from "./pages/Projet";
 import { Quotas } from "./pages/Quotas";
 import { Reglages } from "./pages/Reglages";
 import { Semaine } from "./pages/Semaine";
+import { Jour } from "./pages/Jour";
 
 export function naviguer(chemin: string) {
   history.pushState(null, "", chemin);
@@ -22,5 +23,7 @@ export function App() {
   if (chemin === "/quotas") return <Quotas />;
   if (chemin === "/reglages") return <Reglages />;
   if (chemin === "/semaine") return <Semaine />;
+  const jour = chemin.match(/^\/jour\/(\d{4}-\d{2}-\d{2})$/);
+  if (jour) return <Jour jour={jour[1]} />;
   return <Accueil />;
 }

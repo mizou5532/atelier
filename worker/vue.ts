@@ -3,6 +3,7 @@ import { lireReglage } from "./bd";
 import { derniereActivite, estEndormi, proposition, statutEffectif } from "../shared/regles";
 import { relatif } from "../shared/temps";
 import { heuresTravaillees } from "../shared/activite";
+import { decouperJour, jourMontrealDe, type IA } from "../shared/historique";
 import type { AccueilVue, CarteVue, DetailVue, Fiche, Statut } from "../shared/types";
 
 export function initiales(nom: string): string {
@@ -118,25 +119,43 @@ export async function construireDetail(db: D1Database, id: number, maintenant: D
   };
 }
 
-export async function construireActivite(db: D1Database, maintenant: Date) {
-  const { projets, depots } = await donnees(db);
-  const depuis = new Date(maintenant.getTime() - 182 * 86_400_000).toISOString().slice(0, 10);
-  const jours = new Map<string, Map<number, number>>();
-  for (const d of depots) {
-    if (!d.projet_id || d.masque || !d.activite_json) continue;
-    for (const [jour, n] of Object.entries(JSON.parse(d.activite_json) as Record<string, number>)) {
-      if (jour < depuis) continue;
-      const m = jours.get(jour) ?? new Map<number, number>();
-      m.set(d.projet_id, (m.get(d.projet_id) ?? 0) + n);
-      jours.set(jour, m);
-    }
+type LigneCommit = { quand: string; message: string; ia: string; projet_id: number; nom: string; couleur: string; icone: string | null };
+
+async function commitsEntre(db: D1Database, depuis: string, jusqua: string): Promise<LigneCommit[]> {
+  return (await db.prepare(
+    `SELECT c.quand, c.message, c.ia, p.id AS projet_id, p.nom, p.couleur, p.icone
+     FROM commits c JOIN depots d ON d.github_id = c.depot_id JOIN projets p ON p.id = d.projet_id
+     WHERE d.masque = 0 AND p.masque = 0 AND c.quand >= ? AND c.quand < ? ORDER BY c.quand`,
+  ).bind(depuis, jusqua).all<LigneCommit>()).results;
+}
+
+/** Calendrier : chaque jour (heure de Montréal) avec ses projets, son temps estimé et ses IA. */
+export async function construireActivite(db: D1Database, maintenant: Date, mois = 12) {
+  const depuis = new Date(maintenant.getTime() - mois * 30.44 * 86_400_000).toISOString();
+  const lignes = await commitsEntre(db, depuis, new Date(maintenant.getTime() + 86_400_000).toISOString());
+  const parJour = new Map<string, LigneCommit[]>();
+  for (const l of lignes) {
+    const j = jourMontrealDe(l.quand);
+    parJour.set(j, [...(parJour.get(j) ?? []), l]);
   }
-  const parId = new Map(projets.map((p) => [p.id, p]));
+  const infos = new Map(lignes.map((l) => [l.projet_id, l]));
   return {
-    depuis,
-    jours: [...jours.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([jour, m]) => {
-      const liste = [...m.entries()].map(([id, n]) => ({ id, nom: parId.get(id)?.nom ?? "?", couleur: parId.get(id)?.couleur ?? "violet", n })).sort((a, b) => b.n - a.n);
-      return { jour, total: liste.reduce((s, x) => s + x.n, 0), projets: liste };
+    depuis: depuis.slice(0, 10),
+    jours: [...parJour.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([jour, liste]) => {
+      const d = decouperJour(jour, liste.map((l) => ({ projetId: l.projet_id, projet: l.nom, quand: l.quand, message: l.message, ia: l.ia as IA })));
+      return {
+        jour, total: d.total, minutes: d.minutes, ia: d.ia,
+        projets: d.projets.map((p) => ({ id: p.projetId, nom: p.projet, couleur: infos.get(p.projetId)!.couleur, icone: infos.get(p.projetId)!.icone, n: p.n, minutes: p.minutes })),
+      };
     }),
   };
+}
+
+/** Tout sur une journée : projets, temps, part, IA, et chaque changement avec son heure. */
+export async function construireJour(db: D1Database, jour: string) {
+  const t = Date.parse(`${jour}T12:00:00Z`);
+  const lignes = await commitsEntre(db, new Date(t - 86_400_000).toISOString(), new Date(t + 86_400_000).toISOString());
+  const d = decouperJour(jour, lignes.map((l) => ({ projetId: l.projet_id, projet: l.nom, quand: l.quand, message: l.message, ia: l.ia as IA })));
+  const infos = new Map(lignes.map((l) => [l.projet_id, l]));
+  return { ...d, projets: d.projets.map((p) => ({ ...p, couleur: infos.get(p.projetId)?.couleur ?? "violet", icone: infos.get(p.projetId)?.icone ?? null })) };
 }

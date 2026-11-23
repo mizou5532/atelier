@@ -29,8 +29,8 @@ test("recherche rapide Ctrl+K", async () => {
 
 test("calendrier d'activité", async () => {
   const { page, fermer } = await ouvrir(navigateur, site.url);
-  await page.getByRole("heading", { name: "Activité des 6 derniers mois" }).waitFor();
-  assert.ok(await page.locator('[title="21 nov. : 3 changements · Pistes 3"]').count() === 1);
+  await page.getByRole("heading", { name: /Activité des 12 derniers mois/ }).waitFor();
+  assert.equal(await page.locator('[data-jour="2026-11-21"]').count(), 1);
   await fermer();
 });
 
