@@ -20,13 +20,17 @@ export async function synchroniser(env: Env, maintenant: Date, f: typeof fetch =
 
   try {
     const r = await appliquer(db, env.GITHUB_CLE, liste, quand, f);
-    if (!r.erreur) await lireVoyants(db, env.GITHUB_CLE, f);
-    if (!r.erreur) await lireActivite(db, env.GITHUB_CLE, maintenant, f);
-    if (!r.erreur && env.GEMINI_CLE) {
-      await resumerSansFiche(db, env, f);
-      await suivreJalons(db, env, f);
+    if (r.erreur) return r;
+    const etape = async (nom: string, action: () => Promise<void>) => {
+      try { await action(); } catch (e) { console.error(`Synchronisation : étape « ${nom} » en échec`, e); }
+    };
+    await etape("voyants", () => lireVoyants(db, env.GITHUB_CLE, f));
+    await etape("activité", () => lireActivite(db, env.GITHUB_CLE, maintenant, f));
+    if (env.GEMINI_CLE) {
+      await etape("résumés", () => resumerSansFiche(db, env, f));
+      await etape("jalons", () => suivreJalons(db, env, f));
     }
-    if (!r.erreur) await noterHistorique(db, maintenant);
+    await noterHistorique(db, maintenant);
     return r;
   } catch (e) {
     console.error("Synchronisation : erreur interne", e);
@@ -211,10 +215,14 @@ async function lireActivite(db: D1Database, cle: string, maintenant: Date, f: ty
   ).all<{ github_id: number; nom_complet: string; branche: string; pousse_le: string }>()).results;
   const depuis = new Date(maintenant.getTime() - 30 * 86_400_000).toISOString();
   for (const d of depots) {
-    const [stats, recents] = await Promise.all([activiteAnnuelle(cle, d.nom_complet, f), commitsDepuis(cle, d.nom_complet, d.branche, depuis, f)]);
-    if (stats === "calcul") continue; // GitHub prépare encore : prochain passage
-    await db.prepare("UPDATE depots SET activite_json = ?, commits_recents_json = ?, activite_pour = ? WHERE github_id = ?")
-      .bind(stats ? JSON.stringify(joursDepuisStats(stats)) : null, JSON.stringify(recents), d.pousse_le, d.github_id).run();
+    try {
+      const [stats, recents] = await Promise.all([activiteAnnuelle(cle, d.nom_complet, f), commitsDepuis(cle, d.nom_complet, d.branche, depuis, f)]);
+      if (stats === "calcul") continue; // GitHub prépare encore : prochain passage
+      await db.prepare("UPDATE depots SET activite_json = ?, commits_recents_json = ?, activite_pour = ? WHERE github_id = ?")
+        .bind(stats ? JSON.stringify(joursDepuisStats(stats)) : null, JSON.stringify(recents), d.pousse_le, d.github_id).run();
+    } catch (e) {
+      console.error("Activité illisible pour", d.nom_complet, e); // un dépôt ne bloque jamais les autres
+    }
   }
 }
 

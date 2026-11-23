@@ -83,18 +83,25 @@ export async function derniereExecution(cle: string, nomComplet: string, branche
 
 /** Activité des 52 dernières semaines. "calcul" si GitHub prépare encore la réponse (202). */
 export async function activiteAnnuelle(cle: string, nomComplet: string, f: typeof fetch = fetch): Promise<{ week: number; days: number[] }[] | "calcul" | null> {
-  const r = await appeler(cle, `/repos/${nomComplet}/stats/commit_activity`, f).catch(() => null);
-  if (!r) return null;
-  if (r.status === 202) return "calcul";
-  if (!r.ok) return null;
-  const corps = await r.json();
-  return Array.isArray(corps) ? (corps as { week: number; days: number[] }[]) : null;
+  try {
+    const r = await appeler(cle, `/repos/${nomComplet}/stats/commit_activity`, f);
+    if (r.status === 202) return "calcul";
+    if (r.status !== 200) return null; // 204 = dépôt vide
+    const corps = await r.json();
+    return Array.isArray(corps) ? (corps as { week: number; days: number[] }[]) : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Heures des commits depuis une date (au plus 100). */
 export async function commitsDepuis(cle: string, nomComplet: string, branche: string, depuis: string, f: typeof fetch = fetch): Promise<string[]> {
-  const r = await appeler(cle, `/repos/${nomComplet}/commits?per_page=100&sha=${encodeURIComponent(branche)}&since=${encodeURIComponent(depuis)}`, f).catch(() => null);
-  if (!r || !r.ok) return [];
-  const lot = (await r.json()) as { commit: { author?: { date?: string } } }[];
-  return lot.map((c) => c.commit.author?.date).filter((d): d is string => Boolean(d));
+  try {
+    const r = await appeler(cle, `/repos/${nomComplet}/commits?per_page=100&sha=${encodeURIComponent(branche)}&since=${encodeURIComponent(depuis)}`, f);
+    if (r.status !== 200) return [];
+    const lot = (await r.json()) as { commit: { author?: { date?: string } } }[];
+    return lot.map((c) => c.commit.author?.date).filter((d): d is string => Boolean(d));
+  } catch {
+    return [];
+  }
 }

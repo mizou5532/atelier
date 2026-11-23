@@ -8,6 +8,7 @@ import { heureMontreal, relatif } from "../../shared/temps";
 import { filtrerProjets, salutation } from "../../shared/activite";
 import { naviguer } from "../App";
 import { Calendrier } from "../composants/Calendrier";
+import { BasculeTheme } from "../composants/ChoixTheme";
 
 const dateDuJour = () => {
   const t = new Intl.DateTimeFormat("fr-CA", { timeZone: "America/Montreal", weekday: "long", day: "numeric", month: "long" }).format(new Date());
@@ -62,6 +63,7 @@ export function Accueil() {
           <LienInterne vers="/semaine" className="bouton-doux">Ma semaine</LienInterne>
           <LienInterne vers="/quotas" className="bouton-doux">Quotas</LienInterne>
           <LienInterne vers="/reglages" className="bouton-doux">Réglages</LienInterne>
+          <BasculeTheme />
           <button className="bouton-doux" onClick={() => agir(api.rafraichir, "La mise à jour n'a pas marché. Les dernières données connues restent affichées.")}>Rafraîchir</button>
           <button className="bouton-fort" onClick={() => setNouvelleIdee(true)}>+ Nouvelle idée</button>
         </nav>

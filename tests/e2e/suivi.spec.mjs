@@ -73,3 +73,19 @@ test("mode sombre automatique", async () => {
   assert.notEqual(fond, "rgb(255, 255, 255)");
   await contexte.close();
 });
+
+test("choisir Clair, Sombre ou Auto (gardé au rechargement)", async () => {
+  const contexte = await navigateur.newContext({ colorScheme: "light", viewport: { width: 1440, height: 900 } });
+  const page = await contexte.newPage();
+  await page.route("**/api/**", (r) => r.fulfill({ status: 200, contentType: "application/json", body: "{}" }));
+  await page.goto(`${site.url}/reglages`);
+  const fond = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  assert.equal(await fond(), "rgb(255, 255, 255)");
+  await page.getByRole("button", { name: "Sombre" }).click();
+  assert.notEqual(await fond(), "rgb(255, 255, 255)");
+  await page.reload();
+  assert.notEqual(await fond(), "rgb(255, 255, 255)");
+  await page.getByRole("button", { name: "Clair" }).click();
+  assert.equal(await fond(), "rgb(255, 255, 255)");
+  await contexte.close();
+});

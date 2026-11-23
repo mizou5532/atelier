@@ -75,3 +75,13 @@ describe("suivi", () => {
     expect(((await (await api("/api/projets/3")).json()) as any).icone).toBe("🚀");
   });
 });
+
+describe("dépôt vide ou réponse étrange de GitHub", () => {
+  it("une réponse vide (204) pour l'activité ne casse pas la mise à jour", async () => {
+    const base = faux();
+    const f = (async (entree: RequestInfo | URL) => String(entree).includes("/stats/commit_activity") ? new Response(null, { status: 204 }) : base(entree)) as typeof fetch;
+    const r = await synchroniser(e, new Date("2026-11-23T20:00:00Z"), f);
+    expect(r.erreur).toBeUndefined();
+    expect((await db.prepare("SELECT COUNT(*) n FROM historique").first<any>()).n).toBeGreaterThan(0);
+  });
+});

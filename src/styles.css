@@ -143,17 +143,18 @@ kbd { font-family: inherit; font-size: 11px; padding: 2px 6px; margin-left: 8px;
 :root { --fond: #FFFFFF; --case-vide: #F3F4F6; }
 body { background: var(--fond); color: var(--encre); }
 .carte, .panneau, .formulaire { background: var(--fond); }
-@media (prefers-color-scheme: dark) {
-  :root { --fond: #0F1115; --encre: #E5E7EB; --gris: #9CA3AF; --gris-clair: #6B7280; --trait: #23262D; --fond-doux: #181B21; --case-vide: #1C1F26; color-scheme: dark; }
-  a { color: #A5B4FC; } a:hover { color: #C7D2FE; }
-  .bouton-fort { background: #E5E7EB; color: #0F1115; }
-  .bulle { background: #181B21 !important; }
-  .bulle-texte span { color: var(--gris) !important; }
-  .barre { background: #23262D; }
-  select, input, textarea { background: #181B21; border-color: #2A2E36; color: var(--encre); }
-  .bandeau { background: #3B2F0B; color: #FDE68A; }
-  .etiquette.accent { background: #3B2F0B; color: #FDE68A; }
-  .carte-nom, .carte-nom:hover, .bulle, .bulle:hover { color: var(--encre); }
-  .carte-etape { color: #D1D5DB; }
-}
+/* Thème sombre (choisi, ou automatique selon l'ordinateur) */
+[data-theme="dark"] { --fond: #0F1115; --encre: #E5E7EB; --gris: #9CA3AF; --gris-clair: #6B7280; --trait: #23262D; --fond-doux: #181B21; --case-vide: #1C1F26; color-scheme: dark; }
+[data-theme="dark"] a { color: #A5B4FC; }
+[data-theme="dark"] a:hover { color: #C7D2FE; }
+[data-theme="dark"] .bouton-fort { background: #E5E7EB; color: #0F1115; }
+[data-theme="dark"] .bulle { background: #181B21 !important; }
+[data-theme="dark"] .bulle-texte span { color: var(--gris) !important; }
+[data-theme="dark"] .barre { background: #23262D; }
+[data-theme="dark"] select, [data-theme="dark"] input, [data-theme="dark"] textarea { background: #181B21; border-color: #2A2E36; color: var(--encre); }
+[data-theme="dark"] .bandeau { background: #3B2F0B; color: #FDE68A; }
+[data-theme="dark"] .etiquette.accent { background: #3B2F0B; color: #FDE68A; }
+[data-theme="dark"] .carte-nom, [data-theme="dark"] .carte-nom:hover, [data-theme="dark"] .bulle, [data-theme="dark"] .bulle:hover { color: var(--encre); }
+[data-theme="dark"] .carte-etape { color: #D1D5DB; }
 .calendrier-bloc { min-width: 0; max-width: 100%; } .calendrier { max-width: 100%; }
+.choix button.choisi { background: var(--encre); color: var(--fond); border-color: var(--encre); }
