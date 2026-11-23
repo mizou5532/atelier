@@ -41,7 +41,7 @@ export function construireCarte(p: ProjetBrut, depots: DepotBrut[], liens: { nom
     avancement: p.avancement ?? ficheReelle?.avancement ?? pctJalons ?? resume?.avancement ?? null,
     proposition: { ...(propStatut ? { statut: propStatut } : {}), ...(propAvancement !== null ? { avancement: propAvancement } : {}) },
     derniereEtape: fiche?.derniereEtape, prochaineEtape: fiche?.prochaineEtape,
-    enTravail: Boolean(fiche?.enCours), ficheAVerifier: principal?.fiche_etat === "a_verifier", estimeParIA: Boolean(resume) && pctJalons === undefined, jalonsResume: jalonsValides ? `${faits} sur ${jalons.length} jalons` : null,
+    enTravail: Boolean(fiche?.enCours), ficheAVerifier: principal?.fiche_etat === "a_verifier", estimeParIA: Boolean(resume) && pctJalons === undefined, jalonsAValider: p.jalons_etat === "propose", jalonsResume: jalonsValides ? `${faits} sur ${jalons.length} jalons` : null,
     liensRapides: rapides.slice(0, 2), nbDepots: depots.length,
     _fiche: fiche, _principal: principal,
   };

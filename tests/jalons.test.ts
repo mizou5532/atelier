@@ -103,3 +103,26 @@ describe("jalons dans la synchronisation et l'API", () => {
     expect(((await (await api("/api/projets/1")).json()) as any).jalonsEtat).toBe("aucun");
   });
 });
+
+describe("robustesse des jalons", () => {
+  it("une liste trop longue est gardée (10 premiers) au lieu d'être rejetée", async () => {
+    const douze = Array.from({ length: 12 }, (_, i) => ({ titre: `Étape ${i + 1}`, fait: false }));
+    const j = await proposerJalons("cle", "m", { nom: "x", document: "d", commits: [] }, (async () => gemini({ jalons: douze })) as unknown as typeof fetch);
+    expect(j).toHaveLength(10);
+  });
+
+  it("si l'agent échoue, il réessaie au passage suivant", async () => {
+    pousse = "2026-11-22T23:49:16Z";
+    await db.batch([db.prepare("DELETE FROM jalons"), db.prepare("DELETE FROM depots"), db.prepare("UPDATE projets SET jalons_etat = 'aucun', jalons_vus_pour = NULL")]);
+    await db.prepare("INSERT OR REPLACE INTO rattachements_depart (nom_depot, projet_id) VALUES ('iptv-home', 1)").run();
+    await synchroniser(e, new Date("2026-11-23T12:00:00Z"), faux(() => ({ rien: true })).f);
+    await synchroniser(e, new Date("2026-11-23T12:15:00Z"), faux(() => ({ jalons: [{ titre: "A", fait: true }, { titre: "B", fait: false }, { titre: "C", fait: false }] })).f);
+    expect(((await (await api("/api/projets/1")).json()) as any).jalonsEtat).toBe("propose");
+  });
+
+  it("la carte signale des jalons à valider", async () => {
+    const a = (await (await api("/api/accueil")).json()) as any;
+    const iptv = [...a.enCours, ...a.endormis].find((p: any) => p.nom === "IPTV maison");
+    expect(iptv.jalonsAValider).toBe(true);
+  });
+});

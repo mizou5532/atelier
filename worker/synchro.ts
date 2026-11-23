@@ -163,7 +163,8 @@ async function suivreJalons(db: D1Database, env: Env, f: typeof fetch): Promise<
       const ecritures: D1PreparedStatement[] = [];
       if (p.jalons_etat === "aucun") {
         const jalons = await proposerJalons(env.GEMINI_CLE!, modele, entree, f);
-        if (jalons) {
+        if (!jalons) continue; // échec : on réessaiera au prochain passage
+        {
           jalons.forEach((j, i) => ecritures.push(db.prepare("INSERT INTO jalons (projet_id, ordre, titre, fait, coche_par) VALUES (?, ?, ?, ?, ?)")
             .bind(p.id, i + 1, j.titre, j.fait ? 1 : 0, j.fait ? "ia" : null)));
           ecritures.push(db.prepare("UPDATE projets SET jalons_etat = 'propose' WHERE id = ?").bind(p.id));

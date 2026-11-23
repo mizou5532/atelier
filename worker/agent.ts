@@ -5,7 +5,7 @@ import { z } from "zod";
 export type ResumeIA = { derniereEtape: string; prochaineEtape: string; avancement: number | null };
 export type EntreeResume = { nom: string; passation: string | null; readme: string | null; commits: { date: string; message: string }[] };
 
-const LIMITE_TEXTE = 15_000;
+const LIMITE_TEXTE = 30_000;
 
 const SYSTEME = `Tu résumes l'état d'un projet logiciel personnel pour son propriétaire, qui n'est pas développeur.
 Réponds en français du Québec, en phrases courtes et simples (moins de 15 mots chacune).
@@ -103,8 +103,8 @@ export async function proposerJalons(cle: string, modele: string, entree: Entree
     properties: { jalons: { type: "ARRAY", items: { type: "OBJECT", properties: { titre: { type: "STRING" }, fait: { type: "BOOLEAN" } }, required: ["titre", "fait"] } } },
     required: ["jalons"],
   }, f);
-  const v = z.object({ jalons: z.array(z.object({ titre: z.string().trim().min(1).max(120), fait: z.boolean() })).min(3).max(10) }).safeParse(brut);
-  return v.success ? v.data.jalons : null;
+  const v = z.object({ jalons: z.array(z.object({ titre: z.string().trim().min(1).max(120), fait: z.boolean() })).min(3) }).safeParse(brut);
+  return v.success ? v.data.jalons.slice(0, 10) : null;
 }
 
 const SYSTEME_COCHER = `Voici les jalons d'un projet personnel, numérotés. D'après le document et les derniers changements,

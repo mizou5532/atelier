@@ -32,6 +32,7 @@ export type CarteVue = {
   ficheAVerifier: boolean;
   estimeParIA: boolean;
   jalonsResume: string | null;
+  jalonsAValider: boolean;
   liensRapides: Lien[];
   nbDepots: number;
 };
