@@ -37,3 +37,12 @@ jobs:
         run: npx wrangler d1 migrations apply atelier --remote
       - name: Construire et publier
         run: npm run build && npx wrangler deploy
+      - name: Transmettre la clé GitHub (lecture seule) au Worker
+        env:
+          ATELIER_GITHUB_CLE: ${{ secrets.ATELIER_GITHUB_CLE }}
+        run: |
+          if [ -n "$ATELIER_GITHUB_CLE" ]; then
+            printf '%s' "$ATELIER_GITHUB_CLE" | npx wrangler secret put GITHUB_CLE
+          else
+            echo "Secret ATELIER_GITHUB_CLE absent : étape sautée"
+          fi
