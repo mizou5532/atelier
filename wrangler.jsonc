@@ -15,9 +15,9 @@
   "workers_dev": true,
   "preview_urls": false,
   "vars": {
-    "ACCES_EQUIPE": "",
-    "ACCES_AUD": "",
-    "ACCES_COURRIEL": "",
+    "ACCES_EQUIPE": "https://wild-shape-0c7f.cloudflareaccess.com",
+    "ACCES_AUD": "7a555d10838123765f51150a4cc1cb2fc72cfbfeb0f370945e6b19153d770775",
+    "ACCES_COURRIEL": "hamzahlal86@gmail.com",
     "ACCES_SERVICE_ID": ""
   },
   "observability": { "enabled": true },
