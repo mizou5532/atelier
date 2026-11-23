@@ -75,3 +75,23 @@ select, input, textarea { min-height: 40px; border-radius: 12px; border: 1px sol
   h1 { font-size: 26px; }
   .grille, .bas { grid-template-columns: minmax(0, 1fr); }
 }
+
+.page-fiche { max-width: 1100px; }
+.retour { font-weight: 600; text-decoration: none; min-height: 44px; display: inline-flex; align-items: center; }
+.fiche-tete { display: flex; gap: 16px; align-items: center; }
+.fiche-grille { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.carte h2 { margin: 0; }
+.carte p { margin: 0; }
+.etiquette-titre { font-size: 12px; font-weight: 700; color: var(--gris); text-transform: uppercase; letter-spacing: 0.06em; }
+.fort { font-weight: 700; }
+.proposition { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 10px 14px; border-radius: 14px; font-weight: 600; }
+.reglage-ligne { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end; }
+.reglage-ligne label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: var(--gris); }
+.encours { border-width: 2px; }
+.encours-texte { margin: 0; font-family: inherit; white-space: pre-wrap; font-size: 15px; line-height: 1.6; }
+.lien-bloc { display: inline-flex; align-items: center; gap: 4px; padding: 0 6px 0 14px; min-height: 40px; border-radius: 999px; background: var(--fond-doux); }
+.choix button.mini { min-height: 32px; width: 32px; padding: 0; justify-content: center; background: transparent; border: none; }
+.depot-ligne { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.depot-ligne .choix { margin-left: auto; }
+.commits { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+@media (max-width: 720px) { .fiche-grille { grid-template-columns: minmax(0, 1fr); } }
