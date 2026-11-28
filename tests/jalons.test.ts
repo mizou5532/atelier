@@ -28,9 +28,12 @@ describe("agent : jalons", () => {
 
 function faux(reponseIA: () => unknown) {
   const appels: string[] = [];
-  const f = (async (entree: RequestInfo | URL) => {
+  const f = (async (entree: RequestInfo | URL, init?: RequestInit) => {
     const url = String(entree);
-    if (url.includes("generativelanguage")) { appels.push(url); return gemini(reponseIA()); }
+    if (url.includes("generativelanguage")) {
+      if (typeof init?.body === "string" && init.body.includes("graphiste")) return new Response("non", { status: 500 }); // logos : hors sujet ici
+      appels.push(url); return gemini(reponseIA());
+    }
     if (url.includes("/user/repos")) return Response.json(url.includes("page=1") ? [{ id: 70, name: "iptv-home", full_name: "mizou5532/iptv-home", html_url: "https://github.com/mizou5532/iptv-home", homepage: null, private: false, archived: false, default_branch: "main", pushed_at: pousse }] : []);
     if (url.includes("/commits")) return Response.json([]);
     if (url.includes("PASSATION.md")) return new Response("# PASSATION");
@@ -97,7 +100,7 @@ describe("jalons dans la synchronisation et l'API", () => {
 
   it("un projet avec une fiche qui donne déjà un % n'a pas besoin de jalons", async () => {
     const { f, appels } = faux(() => ({ jalons: [] }));
-    const avecFiche = (async (entree: RequestInfo | URL) => String(entree).includes("ETAT.md") ? new Response("---\nstatut: en cours\navancement: 60\n---\n") : f(entree)) as typeof fetch;
+    const avecFiche = (async (entree: RequestInfo | URL, init?: RequestInit) => String(entree).includes("ETAT.md") ? new Response("---\nstatut: en cours\navancement: 60\n---\n") : f(entree, init)) as typeof fetch;
     await synchroniser(e, new Date("2026-11-23T12:00:00Z"), avecFiche);
     expect(appels.filter((u) => u.includes("generativelanguage"))).toHaveLength(0);
     expect(((await (await api("/api/projets/1")).json()) as any).jalonsEtat).toBe("aucun");

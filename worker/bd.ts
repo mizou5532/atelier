@@ -15,6 +15,7 @@ export type ProjetBrut = {
   avancement: number | null; statut_ignore: string | null; avancement_ignore: number | null;
   notes: string; depot_principal: number | null; masque: number; modifie_le: string; cree_le: string;
   jalons_etat?: "aucun" | "propose" | "valide"; jalons_vus_pour?: string | null; icone?: string | null;
+  logo?: string | null; logo_source?: "projet" | "site" | "ia" | "retire" | null; logo_maj?: string | null; nom_auto?: number; decouverte_pour?: string | null;
 };
 
 export type DepotBrut = {
@@ -23,6 +24,7 @@ export type DepotBrut = {
   fiche_json: string | null; fiche_etat: "absente" | "ok" | "a_verifier"; fiche_lue_pour: string | null; commits_json: string;
   resume_ia_json?: string | null; resume_ia_pour?: string | null;
   activite_json?: string | null; commits_recents_json?: string | null; activite_pour?: string | null;
+  site_trouve?: string | null;
   ci_etat?: "succes" | "echec" | "en_cours" | null; ci_nom?: string | null; ci_quand?: string | null; ci_url?: string | null;
 };
 

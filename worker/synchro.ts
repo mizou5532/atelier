@@ -1,7 +1,9 @@
 import type { DepotBrut, Env } from "./bd";
 import { lireFiche } from "../shared/fiche";
 import type { Fiche } from "../shared/types";
-import { activiteAnnuelle, commitsDepuis, derniereExecution, derniersCommits, listerCommits, ErreurGithub, lireEtatMd, lireFichier, listerDepots, type DepotGithub } from "./github";
+import { activiteAnnuelle, arbre, commitsDepuis, derniereExecution, derniersCommits, listerCommits, ErreurGithub, lireEtatMd, lireFichier, lireTexte, listerDepots, type DepotGithub } from "./github";
+import { decouvrir, nomLisible } from "./decouverte";
+import { creerProjet } from "./routes/projets";
 import { cocherJalons, proposerJalons, resumerDepot } from "./agent";
 import { joursDepuisStats } from "../shared/activite";
 import { detecterIA } from "../shared/historique";
@@ -25,6 +27,7 @@ export async function synchroniser(env: Env, maintenant: Date, f: typeof fetch =
     const etape = async (nom: string, action: () => Promise<void>) => {
       try { await action(); } catch (e) { console.error(`Synchronisation : étape « ${nom} » en échec`, e); }
     };
+    await etape("découverte", async () => { await decouvrir(env, f); await completerLiens(db); });
     await etape("voyants", () => lireVoyants(db, env.GITHUB_CLE, f));
     await etape("activité", () => lireActivite(db, env.GITHUB_CLE, maintenant, f));
     await etape("historique complet", () => importerHistorique(db, env.GITHUB_CLE, f));
@@ -46,6 +49,8 @@ async function appliquer(db: D1Database, cle: string, liste: DepotGithub[], quan
   const projetsExistants = new Set((await db.prepare("SELECT id FROM projets").all<{ id: number }>()).results.map((p) => p.id));
   const existants = new Map((await db.prepare("SELECT * FROM depots").all<DepotBrut>()).results.map((d) => [d.github_id, d]));
   const depart = new Map((await db.prepare("SELECT * FROM rattachements_depart").all<{ nom_depot: string; projet_id: number }>()).results.map((r) => [r.nom_depot, r.projet_id]));
+  // Le tout premier import va dans « À classer »; ensuite, chaque nouveau dépôt devient un projet tout seul.
+  const premierImport = (await db.prepare("SELECT derniere_reussite FROM etat_synchro WHERE id = 1").first<{ derniere_reussite: string | null }>())?.derniere_reussite == null;
   const ecritures: D1PreparedStatement[] = [];
   let nouveaux = 0;
 
@@ -54,8 +59,9 @@ async function appliquer(db: D1Database, cle: string, liste: DepotGithub[], quan
     const avant = existants.get(g.id);
     if (!avant) {
       const voulu = depart.get(g.name);
-      const projet = voulu !== undefined && projetsExistants.has(voulu) ? voulu : null;
-      if (projet === null) nouveaux++;
+      let projet = voulu !== undefined && projetsExistants.has(voulu) ? voulu : null;
+      if (projet === null && !premierImport && !g.archived && !g.fork) projet = await creerProjet(db, nomLisible(g.name), "en_cours", "", { nomAuto: true });
+      else if (projet === null) nouveaux++;
       if (voulu !== undefined) ecritures.push(db.prepare("DELETE FROM rattachements_depart WHERE nom_depot = ?").bind(g.name));
       ecritures.push(db.prepare(
         "INSERT INTO depots (github_id, nom_complet, url, site, prive, archive, branche, pousse_le, projet_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -118,6 +124,7 @@ export async function completerLiens(db: D1Database): Promise<void> {
   };
   for (const d of depots) {
     if (d.site) ajouter(d.projet_id!, "Site", d.site, "github");
+    if (d.site_trouve) ajouter(d.projet_id!, "Site", d.site_trouve, "github");
     if (d.fiche_json) for (const l of (JSON.parse(d.fiche_json) as Fiche).liens) ajouter(d.projet_id!, l.nom, l.url, "fiche");
   }
   if (ajouts.length) await db.batch(ajouts);
@@ -138,10 +145,9 @@ async function resumerSansFiche(db: D1Database, env: Env, f: typeof fetch): Prom
   ).bind(RESUMES_PAR_PASSAGE).all<DepotBrut>()).results;
   for (const d of aFaire) {
     try {
-      const passation = await lireFichier(env.GITHUB_CLE, d.nom_complet, d.branche, "PASSATION.md", f);
-      const readme = passation ? null : await lireFichier(env.GITHUB_CLE, d.nom_complet, d.branche, "README.md", f);
+      const documents = await documentsDuDepot(env.GITHUB_CLE, d.nom_complet, d.branche, f);
       const resume = await resumerDepot(env.GEMINI_CLE!, env.GEMINI_MODELE || "gemini-3.5-flash-lite", {
-        nom: d.nom_complet.split("/")[1], passation, readme, commits: await historiquePourAgent(db, d.github_id, d.commits_json),
+        nom: d.nom_complet.split("/")[1], passation: documents, readme: null, commits: await historiquePourAgent(db, d.github_id, d.commits_json),
       }, f);
       await db.prepare("UPDATE depots SET resume_ia_json = COALESCE(?, resume_ia_json), resume_ia_pour = ? WHERE github_id = ?")
         .bind(resume ? JSON.stringify(resume) : null, d.pousse_le, d.github_id).run();
@@ -167,8 +173,7 @@ async function suivreJalons(db: D1Database, env: Env, f: typeof fetch): Promise<
     .slice(0, JALONS_PAR_PASSAGE);
   for (const p of projets) {
     try {
-      const document = (await lireFichier(env.GITHUB_CLE, p.nom_complet, p.branche, "PASSATION.md", f))
-        ?? (await lireFichier(env.GITHUB_CLE, p.nom_complet, p.branche, "README.md", f));
+      const document = await documentsDuDepot(env.GITHUB_CLE, p.nom_complet, p.branche, f);
       const entree = { nom: p.nom_complet.split("/")[1], document, commits: await historiquePourAgent(db, p.github_id, p.commits_json) };
       const modele = env.GEMINI_MODELE || "gemini-3.5-flash-lite";
       const ecritures: D1PreparedStatement[] = [];
@@ -279,4 +284,29 @@ async function importerHistorique(db: D1Database, cle: string, f: typeof fetch):
 async function historiquePourAgent(db: D1Database, depotId: number, secours: string): Promise<{ date: string; message: string }[]> {
   const lignes = (await db.prepare("SELECT quand, message FROM commits WHERE depot_id = ? ORDER BY quand DESC LIMIT 150").bind(depotId).all<{ quand: string; message: string }>()).results;
   return lignes.length ? lignes.map((l) => ({ date: l.quand, message: l.message.split("\n")[0] })) : JSON.parse(secours);
+}
+
+const LIMITE_DOCUMENTS = 30_000;
+
+/** Tout ce que l'agent peut lire pour comprendre un projet : passation, README, consignes, dernière conception et dernier plan (dossier docs). */
+export async function documentsDuDepot(cle: string, nomComplet: string, branche: string, f: typeof fetch): Promise<string | null> {
+  const liste = await arbre(cle, nomComplet, branche, f);
+  let morceaux: { chemin: string; texte: string | null }[];
+  if (liste === null) {
+    // Liste des fichiers illisible : on se contente de la passation, sinon du README (comme avant).
+    const passation = await lireFichier(cle, nomComplet, branche, "PASSATION.md", f);
+    morceaux = [{ chemin: "PASSATION.md", texte: passation }, ...(passation ? [] : [{ chemin: "README.md", texte: await lireFichier(cle, nomComplet, branche, "README.md", f) }])];
+  } else {
+    const chemins = ["PASSATION.md", "README.md", "AGENTS.md", "CLAUDE.md"].filter((c) => liste.some((x) => x.chemin === c));
+    const docs = liste.map((x) => x.chemin).filter((c) => /^docs\/.+\.md$/i.test(c)).sort().reverse();
+    const conception = docs.find((c) => /spec|concept|design/i.test(c));
+    const plan = docs.find((c) => /plan/i.test(c) && c !== conception);
+    chemins.push(...[conception, plan].filter((c): c is string => Boolean(c)));
+    morceaux = await Promise.all(chemins.map(async (chemin) => ({ chemin, texte: await lireTexte(cle, nomComplet, branche, chemin, f) })));
+  }
+  // Un CLAUDE.md qui renvoie seulement vers AGENTS.md (« @AGENTS.md ») n'apporte rien.
+  const utiles = morceaux.filter((m) => m.texte?.trim() && !(/^(CLAUDE|AGENTS)\.md$/.test(m.chemin) && m.texte.trim().length < 40));
+  if (!utiles.length) return null;
+  const part = Math.floor(LIMITE_DOCUMENTS / utiles.length);
+  return utiles.map((m) => `### Fichier ${m.chemin}\n${m.texte!.trim().slice(0, part)}`).join("\n\n");
 }

@@ -4,6 +4,7 @@ import type { Contexte } from "../index";
 import { corps, invalide } from "./outils";
 import { creerProjet } from "./projets";
 import { completerLiens } from "../synchro";
+import { nomLisible } from "../decouverte";
 
 export const routesDepots = new Hono<Contexte>();
 
@@ -24,7 +25,7 @@ routesDepots.post("/depots/:id/classer", async (c) => {
   }
   let projet: number;
   if (b.action === "nouveau") {
-    projet = await creerProjet(db, d.nom_complet.split("/")[1], "en_cours", "");
+    projet = await creerProjet(db, nomLisible(d.nom_complet.split("/")[1]), "en_cours", "", { nomAuto: true });
   } else {
     const p = await db.prepare("SELECT statut FROM projets WHERE id = ?").bind(b.projetId).first<{ statut: string | null }>();
     if (!p) return c.json({ message: "Projet introuvable." }, 404);

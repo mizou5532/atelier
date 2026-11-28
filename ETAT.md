@@ -11,4 +11,6 @@ liens:
 ---
 
 ## En cours
-(Vide quand aucune étape n'est en cours.)
+Agent plus autonome (demande du propriétaire, 28 nov.) : chaque nouveau dépôt devient un projet tout seul; à chaque changement poussé, l'agent cherche le logo (projet → site → logo dessiné par l'IA), le lien du site (wrangler, déploiements, CNAME, documents) et le vrai nom, et lit plus de documents (docs/, CLAUDE.md, AGENTS.md).
+- Fait : enquête; moteur (migration 0009, worker/decouverte.ts, logo IA dans agent.ts, création automatique, documents docs/ lus par l'agent, routes du logo), 121 tests verts.
+- Prochaine action : afficher les logos dans l'interface (cartes, fiche, calendrier) + boutons « Retirer » / « Chercher un logo ».

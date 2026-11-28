@@ -34,6 +34,7 @@ export type CarteVue = {
   jalonsResume: string | null;
   jalonsAValider: boolean;
   icone: string | null;
+  logo: string | null;
   historique: { jour: string; avancement: number }[];
   deltaSemaine: number | null;
   heuresSemaine: number;
@@ -53,6 +54,7 @@ export type DetailVue = CarteVue & {
   depots: { githubId: number; nom: string; url: string; prive: boolean; principal: boolean; disparu: boolean; ficheEtat: string }[];
   commits: { date: string; message: string }[];
   jalonsEtat: "aucun" | "propose" | "valide";
+  logoSource: "projet" | "site" | "ia" | "retire" | null;
   jalons: { id: number; titre: string; fait: boolean; cochePar: "ia" | "main" | null }[];
 };
 

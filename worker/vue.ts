@@ -13,7 +13,7 @@ export function initiales(nom: string): string {
   return (mots[0][0] + mots[1][0]).toUpperCase();
 }
 
-function depotPrincipal(p: ProjetBrut, depots: DepotBrut[]): DepotBrut | undefined {
+export function depotPrincipal(p: ProjetBrut, depots: DepotBrut[]): DepotBrut | undefined {
   const choisi = depots.find((d) => d.github_id === p.depot_principal);
   if (choisi) return choisi;
   const tri = [...depots].sort((a, b) => b.pousse_le.localeCompare(a.pousse_le));
@@ -47,6 +47,7 @@ export function construireCarte(p: ProjetBrut, depots: DepotBrut[], liens: { nom
     derniereEtape: fiche?.derniereEtape, prochaineEtape: fiche?.prochaineEtape,
     enTravail: Boolean(fiche?.enCours), ficheAVerifier: principal?.fiche_etat === "a_verifier", estimeParIA: Boolean(resume) && pctJalons === undefined, jalonsAValider: p.jalons_etat === "propose",
     icone: p.icone ?? null,
+    logo: p.logo ? `/api/projets/${p.id}/logo?v=${encodeURIComponent(p.logo_maj ?? "1")}` : null,
     historique: histo.filter((h) => h.jour >= new Date(maintenant.getTime() - 30 * 86_400_000).toISOString().slice(0, 10)).map((h) => ({ jour: h.jour, avancement: h.avancement })),
     deltaSemaine: (() => {
       const actuel = p.avancement ?? ficheReelle?.avancement ?? pctJalons ?? resume?.avancement ?? null;
@@ -115,6 +116,7 @@ export async function construireDetail(db: D1Database, id: number, maintenant: D
     })),
     commits: _principal ? JSON.parse(_principal.commits_json) : [],
     jalonsEtat: p.jalons_etat ?? "aucun",
+    logoSource: p.logo_source ?? null,
     jalons: siensJalons.map((j) => ({ id: j.id, titre: j.titre, fait: !!j.fait, cochePar: j.coche_par })),
   };
 }
