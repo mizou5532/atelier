@@ -49,7 +49,7 @@ routesProjets.get("/semaine", async (c) => {
   return c.json({
     actifs: tous.filter((p) => p.heuresSemaine > 0 || (p.deltaSemaine ?? 0) !== 0)
       .sort((a, b) => b.heuresSemaine - a.heuresSemaine)
-      .map((p) => ({ id: p.id, nom: p.nom, icone: p.icone, couleur: p.couleur, heures: p.heuresSemaine, delta: p.deltaSemaine, avancement: p.avancement, derniereEtape: p.derniereEtape })),
+      .map((p) => ({ id: p.id, nom: p.nom, icone: p.icone, logo: p.logo, couleur: p.couleur, heures: p.heuresSemaine, delta: p.deltaSemaine, avancement: p.avancement, derniereEtape: p.derniereEtape })),
     echecs: tous.filter((p) => p.voyant?.etat === "echec").map((p) => ({ id: p.id, nom: p.nom, url: p.voyant!.url, relatif: p.voyant!.relatif })),
     endormis: v.endormis.map((p) => ({ id: p.id, nom: p.nom, relatif: p.derniere.relatif, derniereEtape: p.derniereEtape, prochaineEtape: p.prochaineEtape })),
     heuresTotal: Math.round(tous.reduce((s, p) => s + p.heuresSemaine, 0) * 10) / 10,
@@ -61,11 +61,11 @@ routesProjets.get("/projets/:id", async (c) => {
   return d ? c.json(d) : c.json({ message: "Projet introuvable." }, 404);
 });
 
-export async function creerProjet(db: D1Database, nom: string, statut: string, notes: string): Promise<number> {
+export async function creerProjet(db: D1Database, nom: string, statut: string, notes: string, o: { nomAuto?: boolean } = {}): Promise<number> {
   const n = await db.prepare("SELECT COUNT(*) AS n FROM projets").first<{ n: number }>();
   const maintenant = new Date().toISOString();
-  const r = await db.prepare("INSERT INTO projets (nom, couleur, statut, notes, modifie_le, cree_le) VALUES (?, ?, ?, ?, ?, ?) RETURNING id")
-    .bind(nom, PALETTE[(n?.n ?? 0) % PALETTE.length], statut, notes, maintenant, maintenant).first<{ id: number }>();
+  const r = await db.prepare("INSERT INTO projets (nom, couleur, statut, notes, nom_auto, modifie_le, cree_le) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id")
+    .bind(nom, PALETTE[(n?.n ?? 0) % PALETTE.length], statut, notes, o.nomAuto ? 1 : 0, maintenant, maintenant).first<{ id: number }>();
   return r!.id;
 }
 
@@ -86,10 +86,11 @@ routesProjets.patch("/projets/:id", async (c) => {
     depotPrincipal: z.number().int().nullable().optional(),
     masque: z.boolean().optional(),
     icone: z.string().trim().max(8).nullable().optional(),
+    logo: z.null().optional(),
   }).strict());
   if (!b) return invalide(c);
   const champs: [string, unknown][] = [];
-  if (b.nom !== undefined) champs.push(["nom", b.nom]);
+  if (b.nom !== undefined) champs.push(["nom", b.nom], ["nom_auto", 0]);
   if (b.statut !== undefined) champs.push(["statut", b.statut]);
   if (b.remplacePar !== undefined) champs.push(["remplace_par", b.remplacePar]);
   if (b.avancement !== undefined) champs.push(["avancement", b.avancement]);
@@ -97,9 +98,29 @@ routesProjets.patch("/projets/:id", async (c) => {
   if (b.depotPrincipal !== undefined) champs.push(["depot_principal", b.depotPrincipal]);
   if (b.masque !== undefined) champs.push(["masque", b.masque ? 1 : 0]);
   if (b.icone !== undefined) champs.push(["icone", b.icone || null]);
+  if (b.logo === null) champs.push(["logo", null], ["logo_source", "retire"], ["logo_maj", new Date().toISOString()]);
   champs.push(["modifie_le", new Date().toISOString()]);
   const r = await c.env.DB.prepare(`UPDATE projets SET ${champs.map(([k]) => `${k} = ?`).join(", ")} WHERE id = ?`)
     .bind(...champs.map(([, v]) => v), Number(c.req.param("id"))).run();
+  return r.meta.changes ? c.body(null, 204) : c.json({ message: "Projet introuvable." }, 404);
+});
+
+/** Le logo du projet (image gardée dans la base). */
+routesProjets.get("/projets/:id/logo", async (c) => {
+  const r = await c.env.DB.prepare("SELECT logo FROM projets WHERE id = ?").bind(Number(c.req.param("id"))).first<{ logo: string | null }>();
+  const m = r?.logo?.match(/^data:([a-z0-9.+/-]+);base64,(.+)$/i);
+  if (!m) return c.body(null, 404);
+  const octets = Uint8Array.from(atob(m[2]), (x) => x.charCodeAt(0));
+  return c.body(octets, 200, {
+    "content-type": m[1], "cache-control": "private, max-age=31536000, immutable",
+    "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'", "x-content-type-options": "nosniff",
+  });
+});
+
+/** Demande à l'agent de chercher un logo à nouveau (au prochain passage, ou tout de suite avec « Rafraîchir »). */
+routesProjets.post("/projets/:id/logo/chercher", async (c) => {
+  const r = await c.env.DB.prepare("UPDATE projets SET logo = NULL, logo_source = NULL, logo_maj = ?, decouverte_pour = NULL WHERE id = ?")
+    .bind(new Date().toISOString(), Number(c.req.param("id"))).run();
   return r.meta.changes ? c.body(null, 204) : c.json({ message: "Projet introuvable." }, 404);
 });
 

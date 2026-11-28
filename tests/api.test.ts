@@ -94,7 +94,7 @@ describe("API", () => {
     await api("/api/depots/99/classer", { method: "POST", corps: { action: "nouveau" } });
     const a = await accueil();
     expect(a.aClasser).toEqual([]);
-    expect([...a.enCours, ...a.endormis].map((p: any) => p.nom)).toContain("test");
+    expect([...a.enCours, ...a.endormis].map((p: any) => p.nom)).toContain("Test"); // nom rendu lisible
   });
 
   it("classer : rattacher à une idée la démarre et garde ses notes", async () => {

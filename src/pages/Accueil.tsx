@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { AccueilVue, CarteVue, DepotVue } from "../../shared/types";
 import { api } from "../api";
-import { CarteProjet } from "../composants/CarteProjet";
+import { CarteProjet, IconeProjet } from "../composants/CarteProjet";
 import { BulleQuota } from "../composants/BulleQuota";
 import { LienInterne } from "../composants/Lien";
 import { heureMontreal, relatif } from "../../shared/temps";
@@ -210,7 +210,7 @@ function Recherche({ projets, valeur, changer }: { projets: CarteVue[]; valeur: 
           onKeyDown={(e) => { if (e.key === "Enter" && trouves[0]) { changer(null); naviguer(`/projet/${trouves[0].id}`); } }} />
         <ul>
           {trouves.map((p) => (
-            <li key={p.id}><button onClick={() => { changer(null); naviguer(`/projet/${p.id}`); }}>{p.icone ?? "•"} {p.nom}</button></li>
+            <li key={p.id}><button onClick={() => { changer(null); naviguer(`/projet/${p.id}`); }}><IconeProjet logo={p.logo} icone={p.icone} /> {p.nom}</button></li>
           ))}
           {trouves.length === 0 && <li className="discret">Aucun projet trouvé.</li>}
         </ul>

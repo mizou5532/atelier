@@ -24,7 +24,7 @@ export async function resumerDepot(cle: string, modele: string, entree: EntreeRe
   if (!document && entree.commits.length === 0) return null;
   const texte = [
     `Projet : ${entree.nom}`,
-    document ? `Document (${entree.passation ? "passation" : "README"}) :\n${document.slice(0, LIMITE_TEXTE)}` : "Pas de document.",
+    document ? `Documents du projet :\n${document.slice(0, LIMITE_TEXTE)}` : "Pas de document.",
     `Derniers changements :\n${entree.commits.map((c) => `- ${c.date.slice(0, 10)} ${c.message}`).join("\n") || "aucun"}`,
   ].join("\n\n");
   try {
@@ -119,4 +119,31 @@ export async function cocherJalons(cle: string, modele: string, entree: EntreeJa
   if (!v.success) return null;
   const pasFaits = new Set(entree.jalons.filter((j) => !j.fait).map((j) => j.numero));
   return [...new Set(v.data.faits)].filter((n) => pasFaits.has(n));
+}
+
+const SYSTEME_LOGO = `Tu es graphiste. Dessine le logo d'une petite application personnelle, en SVG.
+Règles strictes :
+- Commence par <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"> et termine par </svg>.
+- Un fond carré aux coins arrondis (rx entre 12 et 16) d'une couleur franche, puis UN symbole simple et centré qui évoque ce que fait l'application.
+- Style plat et moderne, 2 à 4 couleurs, formes géométriques nettes, lisible à 32 pixels.
+- Aucun texte, aucune lettre, aucune image externe, aucun script, aucun lien, aucune animation.`;
+
+/** Garde seulement un SVG simple et sans danger (pas de script, de lien externe, d'image ni d'événement). */
+export function svgSur(brut: string): string | null {
+  const svg = brut.trim().replace(/^```(?:svg|xml)?\s*/i, "").replace(/\s*```$/, "").trim();
+  if (svg.length > 15_000 || !/^<svg[\s>]/i.test(svg) || !/<\/svg>$/i.test(svg)) return null;
+  if (/<(script|foreignObject|image|iframe|object|embed|a|animate\w*|set)\b|\son[a-z]+\s*=|javascript:|data:|(?:xlink:)?href\s*=\s*(?!["']?#)|url\(\s*(?!["']?#)|@import/i.test(svg)) return null;
+  return /xmlns=/.test(svg.slice(0, 200)) ? svg : svg.replace(/^<svg/i, '<svg xmlns="http://www.w3.org/2000/svg"');
+}
+
+/** L'IA dessine un petit logo simple pour un projet qui n'en a pas. null si la réponse n'est pas un SVG sûr. */
+export async function dessinerLogo(cle: string, modele: string, entree: { nom: string; description: string }, f: typeof fetch = fetch): Promise<string | null> {
+  const texte = `Application : ${entree.nom}\n\nCe qu'elle fait :\n${entree.description.slice(0, 4000) || "(pas de description : inspire-toi du nom)"}`;
+  for (let essai = 0; essai < 2; essai++) {
+    const brut = await demander(cle, modele, SYSTEME_LOGO, texte, { type: "OBJECT", properties: { svg: { type: "STRING" } }, required: ["svg"] }, f);
+    const v = z.object({ svg: z.string() }).safeParse(brut);
+    const sur = v.success ? svgSur(v.data.svg) : null;
+    if (sur) return sur;
+  }
+  return null;
 }

@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { LienInterne } from "../composants/Lien";
 import { couleur } from "../composants/couleurs";
+import { Pastille } from "../composants/CarteProjet";
 import { dureeTexte } from "../composants/duree";
 import { NOMS_IA, type IA } from "../../shared/historique";
 
 type J = {
   jour: string; total: number; minutes: number; premier: string | null; dernier: string | null; ia: Partial<Record<IA, number>>;
-  projets: { projetId: number; projet: string; couleur: string; icone: string | null; n: number; minutes: number; part: number; premier: string; dernier: string; ia: Partial<Record<IA, number>>; commits: { heure: string; message: string; ia: IA }[] }[];
+  projets: { projetId: number; projet: string; couleur: string; icone: string | null; logo: string | null; n: number; minutes: number; part: number; premier: string; dernier: string; ia: Partial<Record<IA, number>>; commits: { heure: string; message: string; ia: IA }[] }[];
 };
 
 const formatLong = new Intl.DateTimeFormat("fr-CA", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
@@ -36,7 +37,8 @@ export function Jour({ jour }: { jour: string }) {
           {j.projets.map((p) => (
             <section key={p.projetId} className="carte">
               <div className="carte-tete">
-                <span className="pastille" aria-hidden="true" style={{ background: couleur(p.couleur).doux, width: 44, height: 44, fontSize: 22 }}>{p.icone ?? "•"}</span>
+                {p.logo ? <Pastille carte={{ couleur: p.couleur, initiales: "", logo: p.logo }} taille={44} />
+                  : <span className="pastille" aria-hidden="true" style={{ background: couleur(p.couleur).doux, width: 44, height: 44, fontSize: 22 }}>{p.icone ?? "•"}</span>}
                 <div className="carte-titre">
                   <LienInterne vers={`/projet/${p.projetId}`} className="carte-nom">{p.projet}</LienInterne>
                   <span className="discret">{dureeTexte(p.minutes)} · {p.n} changement{p.n > 1 ? "s" : ""} · de {p.premier} à {p.dernier}</span>

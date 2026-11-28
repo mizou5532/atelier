@@ -25,7 +25,9 @@ export async function servir() {
   return { url: `http://127.0.0.1:${serveur.address().port}`, fermer: () => serveur.close() };
 }
 
-const carte = (o) => ({ icone: null, historique: [], deltaSemaine: null, heuresSemaine: 0, voyant: null, jalonsResume: null, jalonsAValider: false, estimeParIA: false, derniereEtape: undefined, prochaineEtape: undefined, enTravail: false, ficheAVerifier: false, liensRapides: [], nbDepots: 1, proposition: {}, avancement: null, statut: "en_cours", ...o });
+export const LOGO_TEST = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#1E1E1E"/><rect x="12" y="12" width="12" height="12" rx="3" fill="#15803D"/><rect x="26" y="12" width="12" height="12" rx="3" fill="#4ADE80"/><rect x="40" y="12" width="12" height="12" rx="3" fill="#F87171"/><rect x="12" y="26" width="12" height="12" rx="3" fill="#4ADE80"/><rect x="26" y="26" width="12" height="12" rx="3" fill="#FECACA"/><rect x="40" y="26" width="12" height="12" rx="3" fill="#B91C1C"/><rect x="12" y="40" width="12" height="12" rx="3" fill="#15803D"/><rect x="26" y="40" width="12" height="12" rx="3" fill="#BBF7D0"/><rect x="40" y="40" width="12" height="12" rx="3" fill="#F87171"/></svg>`;
+
+const carte = (o) => ({ icone: null, logo: null, historique: [], deltaSemaine: null, heuresSemaine: 0, voyant: null, jalonsResume: null, jalonsAValider: false, estimeParIA: false, derniereEtape: undefined, prochaineEtape: undefined, enTravail: false, ficheAVerifier: false, liensRapides: [], nbDepots: 1, proposition: {}, avancement: null, statut: "en_cours", ...o });
 
 export function accueilExemple() {
   return {
@@ -56,6 +58,7 @@ export async function ouvrir(navigateur, url, { largeur = 1440, hauteur = 900, a
     const chemin = new URL(req.url()).pathname;
     envois.push({ methode: req.method(), chemin, corps: req.postData() ? JSON.parse(req.postData()) : undefined });
     const cle = `${req.method()} ${chemin}`;
+    if (req.method() === "GET" && /^\/api\/projets\/\d+\/logo$/.test(chemin)) return route.fulfill({ status: 200, contentType: "image/svg+xml", body: LOGO_TEST });
     if (cle in reponses) return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(typeof reponses[cle] === "function" ? reponses[cle]() : reponses[cle]) });
     if (cle === "GET /api/activite") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ depuis: "2025-11-23", jours: [{ jour: "2026-11-21", total: 3, minutes: 95, ia: { claude: 2, antigravity: 1 }, projets: [{ id: 3, nom: "Pistes", couleur: "vert", icone: "💼", n: 3, minutes: 95 }] }] }) });
     if (cle === "GET /api/preferences" && !(cle in reponses)) return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(prefs ?? {}) });

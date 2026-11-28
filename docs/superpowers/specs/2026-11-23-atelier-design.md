@@ -129,7 +129,7 @@ ARCHIVES (terminés, abandonnés, remplacés) ▸
 ### 9.1 Projets et dépôts
 
 - Un dépôt est reconnu par son identifiant GitHub, ce qui survit à un changement de nom. Il appartient à **au plus un** projet, ou il est masqué.
-- Un dépôt nouveau n'est **jamais** rattaché automatiquement : il va dans « À classer ».
+- ~~Un dépôt nouveau n'est jamais rattaché automatiquement.~~ **Changé le 28 novembre 2026, à la demande du propriétaire :** un dépôt nouveau devient tout seul un **nouveau projet** (nom rendu lisible, puis vrai nom de l'app s'il le trouve). Exceptions qui vont dans « À classer » : le tout premier import, les dépôts archivés et les copies (forks). On peut toujours détacher, rattacher ou masquer ensuite.
 - Rattacher un dépôt à une idée en fait un projet « En cours » qui garde ses notes.
 - Un projet a un nom, un statut, des notes, des liens, de 0 à n dépôts et un **dépôt principal** qui fournit la fiche. Par défaut, c'est le dépôt qui a une fiche et le dernier `push`; sinon, le dernier `push`.
 - **Dernière activité** d'un projet : le `push` le plus récent parmi ses dépôts, toutes branches confondues. Pour un projet sans dépôt, c'est la date de sa dernière modification dans Atelier, marquée « (à la main) ».
@@ -226,6 +226,15 @@ La phrase fonctionne dans n'importe quel outil : Claude Code sur l'un ou l'autre
 
 - Chaque projet a une liste modifiable de liens (un nom et une adresse).
 - Elle est préremplie avec l'adresse GitHub de chaque dépôt, le champ « site » du dépôt sur GitHub et les `liens` de la fiche.
+- **Ajout du 28 novembre 2026 :** si le dépôt n'a pas de champ « site », l'agent cherche l'adresse lui-même (fichier `wrangler`, mises en ligne publiées sur GitHub, `CNAME`, `package.json`, adresses d'hébergeurs citées dans le README ou la passation et qui ressemblent au nom du projet). Il n'ajoute l'adresse que si le site répond.
+
+### 9.7 bis Logo et découverte (ajout du 28 novembre 2026)
+
+- Chaque projet a toujours un logo. L'agent le cherche dans cet ordre : l'icône du projet (manifeste de l'app, `logo.svg`, `apple-touch-icon`, favicon…), sinon l'icône du site en ligne, sinon **un petit logo simple dessiné par l'IA** (SVG filtré : pas de script, pas de lien externe).
+- Il revoit chaque projet **à chaque changement poussé** : un meilleur logo remplace un moins bon (projet > site > IA), jamais l'inverse; un nouveau site s'ajoute aux liens.
+- Le choix du propriétaire gagne toujours : un nom changé à la main n'est plus touché; « Retirer le logo » remet l'émoji et l'agent n'y revient pas; « Chercher un logo » relance la recherche.
+- L'agent lit aussi `AGENTS.md`, `CLAUDE.md`, la dernière conception et le dernier plan du dossier `docs` pour ses résumés et ses jalons.
+- Toujours en lecture seule : rien n'est écrit dans les dépôts.
 
 ### 9.8 Synchronisation avec GitHub
 

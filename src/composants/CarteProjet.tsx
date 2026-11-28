@@ -3,8 +3,21 @@ import { couleur } from "./couleurs";
 import { LienInterne } from "./Lien";
 import { usePreferences } from "../preferences";
 
-export function Pastille({ carte, taille = 44 }: { carte: Pick<CarteVue, "couleur" | "initiales"> & { icone?: string | null }; taille?: number }) {
+/** Petit symbole d'un projet en ligne de texte : son logo, sinon son émoji, sinon un point. */
+export function IconeProjet({ logo, icone, taille = 18 }: { logo?: string | null; icone?: string | null; taille?: number }) {
+  if (logo) return <img className="icone-projet" src={logo} alt="" width={taille} height={taille} loading="lazy" />;
+  return <>{icone ?? "•"}</>;
+}
+
+export function Pastille({ carte, taille = 44 }: { carte: Pick<CarteVue, "couleur" | "initiales"> & { icone?: string | null; logo?: string | null }; taille?: number }) {
   const c = couleur(carte.couleur);
+  if (carte.logo) {
+    return (
+      <span className="pastille pastille-logo" aria-hidden="true" style={{ width: taille, height: taille }}>
+        <img src={carte.logo} alt="" width={taille} height={taille} loading="lazy" />
+      </span>
+    );
+  }
   return (
     <span className="pastille" aria-hidden="true" style={{ background: c.doux, color: c.texte, width: taille, height: taille, fontSize: carte.icone ? taille * 0.5 : undefined }}>
       {carte.icone || carte.initiales}

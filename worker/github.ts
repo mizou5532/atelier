@@ -1,7 +1,7 @@
 // Client GitHub en lecture seule.
 export type DepotGithub = {
   id: number; name: string; full_name: string; html_url: string; homepage: string | null;
-  private: boolean; archived: boolean; default_branch: string; pushed_at: string | null; created_at?: string;
+  private: boolean; archived: boolean; default_branch: string; pushed_at: string | null; created_at?: string; fork?: boolean;
 };
 
 export class ErreurGithub extends Error {
@@ -121,5 +121,61 @@ export async function listerCommits(cle: string, nomComplet: string, branche: st
     return lot.filter((c) => c.commit.author?.date).map((c) => ({ sha: c.sha, quand: c.commit.author!.date!, message: c.commit.message, courriel: c.commit.author?.email ?? "" }));
   } catch {
     return null;
+  }
+}
+
+export type FichierArbre = { chemin: string; taille: number };
+
+/** Liste de tous les fichiers du dépôt (sans node_modules). null si GitHub ne répond pas. */
+export async function arbre(cle: string, nomComplet: string, branche: string, f: typeof fetch = fetch): Promise<FichierArbre[] | null> {
+  try {
+    const r = await appeler(cle, `/repos/${nomComplet}/git/trees/${encodeURIComponent(branche)}?recursive=1`, f);
+    if (r.status === 409) return []; // dépôt vide
+    if (!r.ok) return null;
+    const corps = (await r.json()) as { tree?: { path: string; type: string; size?: number }[] };
+    return (corps.tree ?? [])
+      .filter((x) => x.type === "blob" && !/(^|\/)(node_modules|\.git|dist|build|coverage|vendor)\//.test(x.path))
+      .map((x) => ({ chemin: x.path, taille: x.size ?? 0 }));
+  } catch (e) {
+    if (e instanceof ErreurGithub && e.type === "cle_refusee") throw e;
+    return null;
+  }
+}
+
+/** Octets d'un fichier du dépôt (image), ou null. */
+export async function lireBinaire(cle: string, nomComplet: string, branche: string, chemin: string, f: typeof fetch = fetch): Promise<ArrayBuffer | null> {
+  try {
+    const r = await appeler(cle, `/repos/${nomComplet}/contents/${chemin.split("/").map(encodeURIComponent).join("/")}?ref=${encodeURIComponent(branche)}`, f, "application/vnd.github.raw+json");
+    return r.ok ? await r.arrayBuffer() : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Texte d'un fichier du dépôt (n'importe quel dossier), ou null. Jamais d'erreur. */
+export async function lireTexte(cle: string, nomComplet: string, branche: string, chemin: string, f: typeof fetch = fetch): Promise<string | null> {
+  const o = await lireBinaire(cle, nomComplet, branche, chemin, f);
+  return o ? new TextDecoder().decode(o) : null;
+}
+
+/** Adresses publiées par les mises en ligne (Vercel, Netlify, Cloudflare Pages…) via GitHub. null si la clé n'a pas la permission. */
+export async function adressesDeploiements(cle: string, nomComplet: string, f: typeof fetch = fetch): Promise<string[]> {
+  const entetes = { Authorization: `Bearer ${cle}`, Accept: "application/vnd.github+json", "User-Agent": "atelier", "X-GitHub-Api-Version": "2022-11-28" };
+  try {
+    const r = await f(`${API}/repos/${nomComplet}/deployments?per_page=10`, { headers: entetes, signal: AbortSignal.timeout(15_000) });
+    if (!r.ok) return [];
+    const liste = (await r.json()) as { id: number; environment?: string; production_environment?: boolean }[];
+    const prod = liste.filter((d) => d.production_environment || /prod/i.test(d.environment ?? "")).slice(0, 2);
+    const adresses: string[] = [];
+    for (const d of prod.length ? prod : liste.slice(0, 1)) {
+      const s = await f(`${API}/repos/${nomComplet}/deployments/${d.id}/statuses?per_page=5`, { headers: entetes, signal: AbortSignal.timeout(15_000) });
+      if (!s.ok) continue;
+      const statuts = (await s.json()) as { state: string; environment_url?: string }[];
+      const bon = statuts.find((x) => x.state === "success" && x.environment_url);
+      if (bon?.environment_url) adresses.push(bon.environment_url);
+    }
+    return adresses;
+  } catch {
+    return [];
   }
 }
