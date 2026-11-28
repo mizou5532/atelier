@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { couleur } from "./couleurs";
+import { IconeProjet } from "./CarteProjet";
 import { dureeTexte } from "./duree";
 import { naviguer } from "../App";
 import { usePreferences } from "../preferences";
 import { NOMS_IA, type IA } from "../../shared/historique";
 
-type Jour = { jour: string; total: number; minutes: number; ia: Partial<Record<IA, number>>; projets: { id: number; nom: string; couleur: string; icone: string | null; n: number; minutes: number }[] };
+type Jour = { jour: string; total: number; minutes: number; ia: Partial<Record<IA, number>>; projets: { id: number; nom: string; couleur: string; icone: string | null; logo?: string | null; n: number; minutes: number }[] };
 
 const formatLong = new Intl.DateTimeFormat("fr-CA", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
 const formatMois = new Intl.DateTimeFormat("fr-CA", { month: "short", timeZone: "UTC" });
@@ -56,7 +57,7 @@ export function Calendrier() {
             <>
               <span>{dureeTexte(info.minutes)} de travail · {info.total} changement{info.total > 1 ? "s" : ""}</span>
               {info.projets.map((p) => (
-                <span key={p.id} className="bulle-ligne"><i style={{ background: couleur(p.couleur).fort }} />{p.icone ?? "•"} {p.nom} · {dureeTexte(p.minutes)}</span>
+                <span key={p.id} className="bulle-ligne"><i style={{ background: couleur(p.couleur).fort }} /><IconeProjet logo={p.logo} icone={p.icone} taille={14} /> {p.nom} · {dureeTexte(p.minutes)}</span>
               ))}
               <span className="discret">IA : {Object.entries(info.ia).map(([k, n]) => `${NOMS_IA[k as IA]} ${n}`).join(", ")}</span>
               <span className="discret">Clique pour le détail</span>

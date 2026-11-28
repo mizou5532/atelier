@@ -47,7 +47,7 @@ export function construireCarte(p: ProjetBrut, depots: DepotBrut[], liens: { nom
     derniereEtape: fiche?.derniereEtape, prochaineEtape: fiche?.prochaineEtape,
     enTravail: Boolean(fiche?.enCours), ficheAVerifier: principal?.fiche_etat === "a_verifier", estimeParIA: Boolean(resume) && pctJalons === undefined, jalonsAValider: p.jalons_etat === "propose",
     icone: p.icone ?? null,
-    logo: p.logo ? `/api/projets/${p.id}/logo?v=${encodeURIComponent(p.logo_maj ?? "1")}` : null,
+    logo: p.logo ? `/api/projets/${p.id}/logo?v=${p.logo_maj ?? "1"}` : null,
     historique: histo.filter((h) => h.jour >= new Date(maintenant.getTime() - 30 * 86_400_000).toISOString().slice(0, 10)).map((h) => ({ jour: h.jour, avancement: h.avancement })),
     deltaSemaine: (() => {
       const actuel = p.avancement ?? ficheReelle?.avancement ?? pctJalons ?? resume?.avancement ?? null;
@@ -121,11 +121,12 @@ export async function construireDetail(db: D1Database, id: number, maintenant: D
   };
 }
 
-type LigneCommit = { quand: string; message: string; ia: string; projet_id: number; nom: string; couleur: string; icone: string | null };
+type LigneCommit = { quand: string; message: string; ia: string; projet_id: number; nom: string; couleur: string; icone: string | null; logo: string | null };
 
 async function commitsEntre(db: D1Database, depuis: string, jusqua: string): Promise<LigneCommit[]> {
   return (await db.prepare(
-    `SELECT c.quand, c.message, c.ia, p.id AS projet_id, p.nom, p.couleur, p.icone
+    `SELECT c.quand, c.message, c.ia, p.id AS projet_id, p.nom, p.couleur, p.icone,
+       CASE WHEN p.logo IS NOT NULL THEN '/api/projets/' || p.id || '/logo?v=' || COALESCE(p.logo_maj, '1') END AS logo
      FROM commits c JOIN depots d ON d.github_id = c.depot_id JOIN projets p ON p.id = d.projet_id
      WHERE d.masque = 0 AND p.masque = 0 AND c.quand >= ? AND c.quand < ? ORDER BY c.quand`,
   ).bind(depuis, jusqua).all<LigneCommit>()).results;
@@ -147,7 +148,7 @@ export async function construireActivite(db: D1Database, maintenant: Date, mois 
       const d = decouperJour(jour, liste.map((l) => ({ projetId: l.projet_id, projet: l.nom, quand: l.quand, message: l.message, ia: l.ia as IA })));
       return {
         jour, total: d.total, minutes: d.minutes, ia: d.ia,
-        projets: d.projets.map((p) => ({ id: p.projetId, nom: p.projet, couleur: infos.get(p.projetId)!.couleur, icone: infos.get(p.projetId)!.icone, n: p.n, minutes: p.minutes })),
+        projets: d.projets.map((p) => ({ id: p.projetId, nom: p.projet, couleur: infos.get(p.projetId)!.couleur, icone: infos.get(p.projetId)!.icone, logo: infos.get(p.projetId)!.logo, n: p.n, minutes: p.minutes })),
       };
     }),
   };
@@ -159,5 +160,5 @@ export async function construireJour(db: D1Database, jour: string) {
   const lignes = await commitsEntre(db, new Date(t - 86_400_000).toISOString(), new Date(t + 86_400_000).toISOString());
   const d = decouperJour(jour, lignes.map((l) => ({ projetId: l.projet_id, projet: l.nom, quand: l.quand, message: l.message, ia: l.ia as IA })));
   const infos = new Map(lignes.map((l) => [l.projet_id, l]));
-  return { ...d, projets: d.projets.map((p) => ({ ...p, couleur: infos.get(p.projetId)?.couleur ?? "violet", icone: infos.get(p.projetId)?.icone ?? null })) };
+  return { ...d, projets: d.projets.map((p) => ({ ...p, couleur: infos.get(p.projetId)?.couleur ?? "violet", icone: infos.get(p.projetId)?.icone ?? null, logo: infos.get(p.projetId)?.logo ?? null })) };
 }

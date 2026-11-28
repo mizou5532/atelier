@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { LienInterne } from "../composants/Lien";
 import { couleur } from "../composants/couleurs";
+import { Pastille } from "../composants/CarteProjet";
 
 type S = {
-  actifs: { id: number; nom: string; icone: string | null; couleur: string; heures: number; delta: number | null; avancement: number | null; derniereEtape?: string }[];
+  actifs: { id: number; nom: string; icone: string | null; logo: string | null; couleur: string; heures: number; delta: number | null; avancement: number | null; derniereEtape?: string }[];
   echecs: { id: number; nom: string; url: string; relatif: string }[];
   endormis: { id: number; nom: string; relatif: string; derniereEtape?: string; prochaineEtape?: string }[];
   heuresTotal: number;
@@ -24,7 +25,8 @@ export function Semaine(_props: { id?: number }) {
         {s.actifs.length === 0 && <p className="discret">Rien cette semaine. Une petite séance?</p>}
         {s.actifs.map((p) => (
           <div key={p.id} className="semaine-ligne">
-            <span className="pastille" aria-hidden="true" style={{ background: couleur(p.couleur).doux, width: 36, height: 36 }}>{p.icone ?? "•"}</span>
+            {p.logo ? <Pastille carte={{ couleur: p.couleur, initiales: "", logo: p.logo }} taille={36} />
+              : <span className="pastille" aria-hidden="true" style={{ background: couleur(p.couleur).doux, width: 36, height: 36 }}>{p.icone ?? "•"}</span>}
             <LienInterne vers={`/projet/${p.id}`} className="carte-nom">{p.nom}</LienInterne>
             {p.delta ? <span className={p.delta > 0 ? "hausse" : "baisse"}>{p.delta > 0 ? "+" : ""}{p.delta} %</span> : null}
             {p.heures > 0 && <span className="discret">~{Math.max(1, Math.round(p.heures))} h</span>}

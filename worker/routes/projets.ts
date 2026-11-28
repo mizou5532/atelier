@@ -49,7 +49,7 @@ routesProjets.get("/semaine", async (c) => {
   return c.json({
     actifs: tous.filter((p) => p.heuresSemaine > 0 || (p.deltaSemaine ?? 0) !== 0)
       .sort((a, b) => b.heuresSemaine - a.heuresSemaine)
-      .map((p) => ({ id: p.id, nom: p.nom, icone: p.icone, couleur: p.couleur, heures: p.heuresSemaine, delta: p.deltaSemaine, avancement: p.avancement, derniereEtape: p.derniereEtape })),
+      .map((p) => ({ id: p.id, nom: p.nom, icone: p.icone, logo: p.logo, couleur: p.couleur, heures: p.heuresSemaine, delta: p.deltaSemaine, avancement: p.avancement, derniereEtape: p.derniereEtape })),
     echecs: tous.filter((p) => p.voyant?.etat === "echec").map((p) => ({ id: p.id, nom: p.nom, url: p.voyant!.url, relatif: p.voyant!.relatif })),
     endormis: v.endormis.map((p) => ({ id: p.id, nom: p.nom, relatif: p.derniere.relatif, derniereEtape: p.derniereEtape, prochaineEtape: p.prochaineEtape })),
     heuresTotal: Math.round(tous.reduce((s, p) => s + p.heuresSemaine, 0) * 10) / 10,

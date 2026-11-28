@@ -6,6 +6,10 @@ import { couleur } from "../composants/couleurs";
 import { LienInterne } from "../composants/Lien";
 import { naviguer } from "../App";
 
+const ORIGINE_LOGO: Record<string, string> = {
+  projet: "trouvé dans le projet", site: "trouvé sur le site", ia: "dessiné par l'IA", retire: "retiré : l'émoji est utilisé",
+};
+
 const NOMS_STATUTS: Record<Statut, string> = {
   idee: "Idée", en_cours: "En cours", en_pause: "En pause", termine: "Terminé", abandonne: "Abandonné", remplace: "Remplacé",
 };
@@ -70,6 +74,14 @@ export function Projet({ id }: { id?: number }) {
               <input defaultValue={d.icone ?? ""} key={`i${d.icone}`} maxLength={8} style={{ width: 80 }}
                 onBlur={(e) => e.target.value !== (d.icone ?? "") && agir(() => api.modifierProjet(d.id, { icone: e.target.value }))} />
             </label>
+            <div className="logo-reglage">
+              <span className="etiquette-titre">Logo</span>
+              <span className="discret">{d.logoSource ? ORIGINE_LOGO[d.logoSource] : "l'agent le cherche au prochain passage"}</span>
+              <div className="choix">
+                {d.logo && <button onClick={() => agir(() => api.retirerLogo(d.id))}>Retirer le logo</button>}
+                <button onClick={() => agir(async () => { await api.chercherLogo(d.id); await api.rafraichir(); })}>Chercher un logo</button>
+              </div>
+            </div>
             <label>Statut
               <select value={d.statutChoisi ?? d.statut} onChange={(e) => agir(() => api.modifierProjet(d.id, { statut: e.target.value }))}>
                 {Object.entries(NOMS_STATUTS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
